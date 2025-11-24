@@ -1,0 +1,1347 @@
+/**
+ * 五子棋对局页面 - 现代高级国际化设计
+ * 风格：专业竞技感 + 现代Web应用 + 国际化棋牌
+ */
+
+/* 变量设置 */
+:root {
+    --n: 15;
+    --cell: 32px;
+    --gh-primary: #FF6B6B;
+    --gh-primary-light: #FF8E53;
+    --gh-primary-dark: #FF5252;
+    --gh-secondary: #A78BFA;
+    --gh-secondary-light: #C4B5FD;
+    --gh-accent: #F472B6;
+    --gh-accent-light: #F9A8D4;
+    --gh-text: #2D3748;
+    --gh-text-muted: #718096;
+    --gh-success: #48BB78;
+    --gh-danger: #F56565;
+}
+
+/* ========== 全局背景与光效 ========== */
+.game-room {
+    background: linear-gradient(135deg, 
+        #FAFBFC 0%, 
+        #F5F7FA 30%,
+        #F0F4F8 60%,
+        #EBF0F5 100%);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* 背景光斑效果 */
+.game-room::before {
+    content: '';
+    position: fixed;
+    top: -20%;
+    left: -10%;
+    width: 40%;
+    height: 60%;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(255, 255, 255, 0.2) 30%,
+        transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+    animation: floatGlow 20s ease-in-out infinite;
+}
+
+.game-room::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    right: -10%;
+    width: 35%;
+    height: 50%;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(255, 255, 255, 0.15) 30%,
+        transparent 70%
+    );
+    pointer-events: none;
+    z-index: 0;
+    animation: floatGlow 25s ease-in-out infinite reverse;
+}
+
+@keyframes floatGlow {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+    50% { transform: translate(30px, -30px) scale(1.1); opacity: 0.8; }
+}
+
+/* ========== 主布局（左右对称） ========== */
+.game-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 280px; /* 左右列宽增加，容纳放大的卡片和区域 */
+    grid-template-rows: auto 1fr;
+    gap: 32px;
+    width: min(1600px, 100%);
+    margin: 0 auto;
+    padding: 24px;
+    min-height: calc(100vh - 80px);
+    position: relative;
+    z-index: 1;
+}
+
+/* ========== 顶部对局信息栏 ========== */
+.game-status-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 16px 24px;
+    margin-bottom: 8px;
+}
+
+.status-capsule {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 24px;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    transition: all 0.3s ease;
+}
+
+.status-capsule:hover {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+}
+
+/* 当前执子方提示（小巧、简洁） */
+.status-capsule.turn-indicator {
+    padding: 8px 16px; /* 稍小的内边距 */
+    background: transparent; /* 透明背景，不喧宾夺主 */
+    border: none;
+    box-shadow: none;
+}
+
+.status-capsule.turn-indicator:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.turn-indicator-text {
+    font-size: 11px; /* 小巧字体 */
+    font-weight: 500;
+    color: #6B7280; /* 柔和灰色 */
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.turn-indicator-text::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+}
+
+.info-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.info-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1F2937;
+    letter-spacing: 0.3px;
+}
+
+.side-indicator {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.side-black-indicator {
+    color: #1F2937;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.side-white-indicator {
+    color: #F9FAFB;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.timer-capsule {
+    background: rgba(255, 107, 107, 0.1);
+    border-color: rgba(255, 107, 107, 0.2);
+}
+
+.timer-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.score-capsule {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* ========== 玩家卡片 ========== */
+.player-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
+    gap: 20px; /* 卡片与下方区域的间距 */
+}
+
+/* 左右面板完全对称 */
+.player-panel.player-left,
+.player-panel.player-right {
+    justify-content: flex-start;
+    padding-top: 0;
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
+}
+
+.player-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px; /* 统一间距 */
+    width: auto; /* 自适应宽度 */
+    min-width: 300px; /* 增加20%：250px * 1.2 = 300px，让布局更沉稳 */
+    max-width: 330px; /* 增加18%：280px * 1.18 = 330px，视觉更平衡 */
+    padding: 36px 24px; /* 内边距增加，上下左右一致 */
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    position: relative;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.player-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.12),
+        0 6px 20px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* 在线状态点（卡片右上角，优雅专业版本） */
+.player-status-dot {
+    position: absolute;
+    top: 20px; /* 卡片右上角，留出安全距离 */
+    right: 20px; /* 卡片右上角，留出安全距离 */
+    width: 12px; /* 增大绿点尺寸 */
+    height: 12px;
+    border-radius: 50%;
+    background: #4CAF50; /* 柔和绿色，避免过亮 */
+    border: 1px solid rgba(255, 255, 255, 0.9); /* 白色描边，在浅背景上更清晰 */
+    box-shadow: 
+        0 0 0 1px rgba(76, 175, 80, 0.1), /* 10%外阴影，增加质感 */
+        inset 0 0 4px rgba(76, 175, 80, 0.2), /* 20%内发光，更有"在线状态"质感 */
+        0 1px 2px rgba(0, 0, 0, 0.08); /* 轻微外阴影 */
+    z-index: 10;
+}
+
+/* 头像和棋子水平排列容器 */
+.player-avatar-stone-row {
+    display: flex;
+    align-items: center; /* 垂直居中对齐，让棋子和头像在同一水平线上 */
+    justify-content: center;
+    gap: 14px; /* 头像和棋子间距 12-16px，保持14px */
+    width: 100%;
+    margin-top: 0;
+}
+
+/* 头像包装器（包含头像和昵称） */
+.player-avatar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* 棋子包装器（包含棋子和BLACK/WHITE文字） */
+.player-stone-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding-top: 0; /* 垂直居中，不需要顶部对齐 */
+    position: relative; /* 为倒计时绝对定位提供参考 */
+}
+
+/* 共享状态区域（倒计时、Your Turn、Winner 共享同一块区域） */
+.player-status-area {
+    width: 100%;
+    height: 32px; /* 固定高度，确保无论显示哪个提示都占据相同空间 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+/* 倒计时进度条（圆形，在棋子外圈） */
+.countdown-progress-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px; /* 比棋子稍大，形成外圈 */
+    height: 70px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.countdown-progress-bg {
+    opacity: 0.2;
+}
+
+.countdown-progress-bar {
+    transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease; /* 平滑动画 */
+}
+
+/* 倒计时数字（在棋子下方，字号略小，颜色柔和） */
+.player-countdown-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+    opacity: 0; /* 默认透明，有倒计时时显示 */
+    transition: opacity 0.2s ease;
+}
+
+.player-countdown-number.show {
+    opacity: 1;
+}
+
+.countdown-text {
+    font-size: 18px; /* 【增大】从11px改为18px，更醒目 */
+    font-weight: 700; /* 【加粗】从400改为700，更醒目 */
+    color: #1F2937; /* 【加深】从柔和灰色改为深色，更醒目 */
+    font-variant-numeric: tabular-nums; /* 等宽数字，避免跳动 */
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 0.3s ease, font-weight 0.3s ease, transform 0.3s ease;
+    /* 【增强可见性】添加文字阴影，让数字更突出 */
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8), 0 0 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 倒计时状态：正常（> 10秒） */
+.countdown-text.normal {
+    color: #1F2937; /* 深灰色，更醒目 */
+    font-weight: 700;
+}
+
+/* 倒计时状态：警告（≤ 10秒） */
+.countdown-text.warning {
+    color: #F59E0B; /* 橙色 */
+    font-weight: 700; /* 加粗 */
+    text-shadow: 0 1px 3px rgba(245, 158, 11, 0.4), 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+/* 倒计时状态：危险（≤ 5秒） */
+.countdown-text.danger {
+    color: #EF4444; /* 红色 */
+    font-weight: 800; /* 更粗 */
+    text-shadow: 0 1px 3px rgba(239, 68, 68, 0.5), 0 0 8px rgba(239, 68, 68, 0.4);
+    animation: countdownPulse 1s ease-in-out infinite; /* 呼吸动效 */
+}
+
+@keyframes countdownPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* 进度条颜色变化 */
+.countdown-progress-bar.warning {
+    stroke: #F59E0B; /* 橙色 */
+}
+
+.countdown-progress-bar.danger {
+    stroke: #EF4444; /* 红色 */
+}
+
+/* 玩家头像（大圆形，柔光外圈，保持现有大小） */
+.player-avatar {
+    width: 168px; /* 保持现有大小 */
+    height: 168px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    margin: 0;
+    transition: box-shadow 0.3s ease, filter 0.3s ease; /* 光环过渡动画 300ms */
+}
+
+/* 头像光环效果（当前回合时显示，柔和发光描边） */
+.player-avatar.active-turn {
+    box-shadow: 
+        0 5.6px 22.4px rgba(0, 0, 0, 0.1),
+        0 0 0 1.4px rgba(0, 0, 0, 0.04),
+        0 0 0 3px rgba(255, 182, 193, 0.5), /* 柔和粉色描边 */
+        0 0 15px rgba(255, 182, 193, 0.4), /* 内圈发光 */
+        0 0 30px rgba(255, 182, 193, 0.3), /* 中圈发光 */
+        0 0 50px rgba(255, 182, 193, 0.2); /* 外圈发光，模糊感 */
+    filter: drop-shadow(0 0 10px rgba(255, 182, 193, 0.5)); /* 模糊发光感，不刺眼 */
+}
+
+.player-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4.2px solid rgba(255, 255, 255, 0.95); /* 3px * 1.4 = 4.2px，边框放大40% */
+    box-shadow: 
+        0 5.6px 22.4px rgba(0, 0, 0, 0.1), /* 4px * 1.4 = 5.6px, 16px * 1.4 = 22.4px */
+        0 0 0 1.4px rgba(0, 0, 0, 0.04); /* 1px * 1.4 = 1.4px */
+    position: relative;
+    z-index: 2;
+}
+
+/* 头像柔光外圈（淡粉或淡橙，同步放大40%） */
+.avatar-glow-ring {
+    position: absolute;
+    top: -14px; /* -10px * 1.4 = -14px */
+    left: -14px; /* -10px * 1.4 = -14px */
+    right: -14px; /* -10px * 1.4 = -14px */
+    bottom: -14px; /* -10px * 1.4 = -14px */
+    border-radius: 50%;
+    background: radial-gradient(
+        circle,
+        rgba(255, 182, 193, 0.3) 0%,
+        rgba(255, 182, 193, 0.15) 40%,
+        transparent 70%
+    );
+    z-index: 1;
+    animation: pulseRing 3s ease-in-out infinite;
+}
+
+@keyframes pulseRing {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.03); }
+}
+
+/* 玩家昵称（头像下方居中） */
+.player-name {
+    font-size: 18px; /* 适中的字号 */
+    font-weight: 600;
+    color: #1F2937;
+    letter-spacing: -0.1px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    max-width: 168px; /* 与头像宽度一致，确保在头像下方居中 */
+    margin: 0;
+    padding: 0 4px;
+}
+
+/* 执子图标容器（在头像右侧，水平排列） */
+.player-side-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative; /* 为进度条提供定位参考 */
+}
+
+/* 棋子图标（立体样式，大小为头像的32%，约54px，精致低干扰的辅助视觉元素） */
+.side-icon {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 54px !important; /* 168px * 0.32 = 53.76px，约54px，头像直径的32%，不超过1/3 */
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+    border-radius: 50%;
+    font-size: 0; /* 隐藏文本，使用CSS背景显示棋子 */
+    line-height: 1;
+    position: relative;
+    /* 【重要】确保棋子显示在进度条上方 */
+    z-index: 2;
+}
+
+/* 黑子立体样式（阴影和高光减弱，避免比头像更抢眼） */
+.side-icon.side-black {
+    background: radial-gradient(circle at 30% 30%, 
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.08) 15%,
+        #3A3A3A 40%,
+        #2A2A2A 60%,
+        #1A1A1A 100%) !important;
+    border: 1.5px solid rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 
+        0 3px 8px rgba(0, 0, 0, 0.2),
+        0 1.5px 4px rgba(0, 0, 0, 0.15),
+        inset 0 -1.5px 3px rgba(0, 0, 0, 0.3),
+        inset 0 1.5px 1.5px rgba(255, 255, 255, 0.08) !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+}
+
+/* 白子立体样式（阴影和高光减弱，避免比头像更抢眼） */
+.side-icon.side-white {
+    background: radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.92) 20%,
+        #F5F5F5 40%,
+        #E8E8E8 60%,
+        #D0D0D0 100%) !important;
+    border: 1.5px solid rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 
+        0 3px 8px rgba(0, 0, 0, 0.18),
+        0 1.5px 4px rgba(0, 0, 0, 0.12),
+        inset 0 -1.5px 3px rgba(0, 0, 0, 0.15),
+        inset 0 1.5px 3px rgba(255, 255, 255, 0.7) !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+}
+
+/* 执子文本（Black/White，在棋子下方居中，字号略小于昵称） */
+.player-side-text {
+    font-size: 12px; /* 略小于昵称（18px），作为辅助信息 */
+    font-weight: 500;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    width: 75px; /* 与棋子宽度一致，确保在棋子下方居中 */
+    white-space: nowrap;
+}
+
+/* 状态标签已移除，不再使用 */
+
+/* Winner 标签（在共享状态区域中，绝对定位重叠显示） */
+.player-winner-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 5.4px 13.5px;
+    border-radius: 16.2px;
+    text-transform: uppercase;
+    letter-spacing: 0.54px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    opacity: 0; /* 默认透明 */
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+
+/* Winner 标签显示时 */
+.player-winner-label.show {
+    opacity: 1;
+}
+
+.player-winner-label {
+    color: #F59E0B;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ========== 左右面板完全对称 ========== */
+/* 左侧和右侧面板使用相同的样式，确保完全对称 */
+.player-panel.player-left,
+.player-panel.player-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
+    gap: 20px; /* 卡片与下方区域的间距 */
+}
+
+/* Player1 和 Player2 卡片完全一致，宽度自适应 */
+.player-panel.player-left .player-card,
+.player-panel.player-right .player-card {
+    align-self: center; /* 居中对齐，与下方区域对齐 */
+    width: auto; /* 自适应宽度 */
+    min-width: 300px; /* 最小宽度一致，增加20% */
+    max-width: 330px; /* 最大宽度一致，增加18% */
+    margin: 0; /* 移除额外边距，由gap控制 */
+    flex-shrink: 0;
+}
+
+/* ============================================
+   游戏结束庆祝弹窗
+   ============================================ */
+.victory-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    cursor: pointer; /* 提示可以点击 */
+}
+
+.victory-modal.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.victory-modal-content {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 248, 240, 0.98) 100%);
+    border-radius: 24px;
+    padding: 48px 64px;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 107, 107, 0.2),
+        0 0 100px rgba(255, 107, 107, 0.3);
+    text-align: center;
+    transform: scale(0.8) translateY(-20px);
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.victory-modal.show .victory-modal-content {
+    transform: scale(1) translateY(0);
+}
+
+.victory-modal-content::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 107, 107, 0.1) 0%, transparent 70%);
+    animation: victoryGlow 3s ease-in-out infinite;
+}
+
+@keyframes victoryGlow {
+    0%, 100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1.2) rotate(180deg);
+        opacity: 0.5;
+    }
+}
+
+.victory-icon {
+    font-size: 80px;
+    line-height: 1;
+    margin-bottom: 16px;
+    animation: victoryBounce 0.6s ease-out;
+    display: inline-block;
+}
+
+@keyframes victoryBounce {
+    0% {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2) rotate(0deg);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+.victory-title {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--gh-primary);
+    margin-bottom: 24px;
+    text-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    animation: victoryFadeIn 0.6s ease-out 0.2s both;
+}
+
+@keyframes victoryFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.victory-winner {
+    margin-bottom: 20px;
+    animation: victoryFadeIn 0.6s ease-out 0.4s both;
+}
+
+.victory-winner-name {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--gh-text);
+    display: inline-block;
+}
+
+.victory-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    animation: victoryFadeIn 0.6s ease-out 0.6s both;
+}
+
+.victory-side-badge {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--gh-text);
+    position: relative;
+}
+
+.victory-side-badge.black {
+    background: radial-gradient(circle at 30% 30%, #4A4A4A 0%, #2A2A2A 40%, #0F0F0F 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.victory-side-badge.white {
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 1) 0%, rgba(240, 240, 240, 1) 40%, rgba(220, 220, 220, 1) 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.victory-side-text {
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--gh-text-muted);
+}
+
+/* ============================================
+   禁手提示框
+   ============================================ */
+.forbidden-tip {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-out, visibility 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.forbidden-tip.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.forbidden-tip-content {
+    background: linear-gradient(135deg, rgba(255, 243, 205, 0.98) 0%, rgba(255, 237, 213, 0.98) 100%);
+    border: 2px solid rgba(255, 193, 7, 0.6);
+    border-radius: 12px;
+    padding: 12px 24px;
+    box-shadow: 
+        0 8px 24px rgba(255, 193, 7, 0.3),
+        0 4px 12px rgba(255, 193, 7, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+}
+
+.forbidden-tip-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.forbidden-tip-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #B45309;
+    letter-spacing: 0.5px;
+}
+
+/* ========== 聊天区域（左侧，玩家1卡片下方，与玩家卡片宽度一致） ========== */
+.game-chat-panel {
+    width: auto; /* 改为auto，与玩家卡片保持一致 */
+    min-width: 300px; /* 与玩家卡片最小宽度一致 */
+    max-width: 330px; /* 与玩家卡片最大宽度一致 */
+    min-height: 400px;
+    max-height: calc(100vh - 500px); /* 限制最大高度，保持平衡 */
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.6); /* 轻量背景，保持风格一致 */
+    backdrop-filter: blur(12px);
+    border-radius: 16px; /* 圆角，保持风格一致 */
+    border: 1px solid rgba(0, 0, 0, 0.06); /* 浅色边框，保持风格一致 */
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06); /* 柔和阴影，保持风格一致 */
+    overflow: hidden;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 16px; /* 内边距，保持与卡片左右对齐 */
+    align-self: center; /* 居中对齐，与玩家卡片对齐 */
+}
+
+/* 聊天区域头部（迷你标题栏，极简风格） */
+.game-chat-header {
+    padding: 8px 0 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: transparent;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+}
+
+.game-chat-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-align: left;
+    opacity: 0.8;
+}
+
+/* 聊天消息列表区域（列表式文本风格，类似Chess.com/Lichess） */
+.game-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* 行距紧凑，但不过于紧密 */
+    min-height: 0;
+    background: transparent; /* 与右侧栏背景融为一体 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.game-chat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.game-chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.game-chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+}
+
+.game-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* 聊天消息（列表式文本，无气泡） */
+.game-chat-message {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #1F2937;
+    text-align: left;
+    word-wrap: break-word;
+    word-break: break-word;
+    padding: 3px 0;
+    animation: fadeInMessage 0.2s ease;
+}
+
+@keyframes fadeInMessage {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 玩家1消息（浅橙色，柔和） */
+.game-chat-message.player1 {
+    color: #FB923C; /* 浅橙色，更柔和 */
+    font-weight: 500;
+}
+
+/* 玩家2消息（浅蓝色，柔和） */
+.game-chat-message.player2 {
+    color: #60A5FA; /* 浅蓝色，更柔和 */
+    font-weight: 500;
+}
+
+/* 系统消息（淡灰色） */
+.game-chat-message.system {
+    color: #9CA3AF; /* 淡灰色 */
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* 输入区域（固定在聊天区域底部，是右侧栏的一部分） */
+.game-chat-input-area {
+    display: flex;
+    gap: 10px;
+    padding: 20px 0 0 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    background: transparent; /* 与右侧栏背景融为一体 */
+    flex-shrink: 0;
+    margin-top: 12px;
+    width: 100%; /* 确保占满容器宽度 */
+    min-width: 0; /* 允许flex子元素收缩 */
+}
+
+.game-chat-input {
+    flex: 1;
+    min-width: 0; /* 允许输入框收缩，确保按钮可见 */
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 24px; /* 大圆角 */
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    color: #1F2937;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.game-chat-input:focus {
+    border-color: rgba(59, 130, 246, 0.25);
+    box-shadow: 
+        0 2px 4px rgba(59, 130, 246, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.game-chat-input::placeholder {
+    color: #D1D5DB;
+}
+
+.game-chat-send {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 24px; /* 大圆角，与输入框一致 */
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(59, 130, 246, 0.8));
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 2px 6px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    white-space: nowrap;
+    flex-shrink: 0; /* 按钮不收缩，确保始终可见 */
+    min-width: fit-content; /* 确保按钮有足够宽度显示文字 */
+}
+
+.game-chat-send:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.85));
+    transform: translateY(-1px);
+    box-shadow: 
+        0 3px 8px rgba(59, 130, 246, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.game-chat-send:active {
+    transform: translateY(0);
+}
+
+.game-chat-send:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ========== 系统信息区域（右侧，玩家2卡片下方，与聊天区域和玩家卡片宽度一致） ========== */
+.system-info-panel {
+    width: auto; /* 改为auto，与玩家卡片保持一致 */
+    min-width: 300px; /* 与玩家卡片最小宽度一致 */
+    max-width: 330px; /* 与玩家卡片最大宽度一致，与聊天区域一致 */
+    min-height: 400px;
+    max-height: calc(100vh - 500px); /* 限制最大高度，与聊天区域一致 */
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.6); /* 与聊天区域背景一致 */
+    backdrop-filter: blur(12px); /* 与聊天区域一致 */
+    border-radius: 16px; /* 与聊天区域一致 */
+    border: 1px solid rgba(0, 0, 0, 0.06); /* 与聊天区域一致 */
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06); /* 与聊天区域一致 */
+    overflow: hidden;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 16px; /* 与聊天区域一致 */
+    align-self: center; /* 居中对齐，与玩家卡片对齐 */
+}
+
+/* 系统信息区头部（与聊天区域头部一致） */
+.system-info-header {
+    padding: 8px 0 8px 0; /* 与聊天区域头部一致 */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: transparent;
+    flex-shrink: 0;
+    margin-bottom: 8px; /* 与聊天区域一致 */
+}
+
+.system-info-title {
+    font-size: 10px; /* 与聊天区域标题一致 */
+    font-weight: 600;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-align: left;
+    opacity: 0.8;
+}
+
+/* 系统信息消息列表区域（与聊天消息列表一致） */
+.system-info-messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* 与聊天消息一致 */
+    min-height: 0;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.system-info-messages::-webkit-scrollbar {
+    width: 4px; /* 与聊天区域一致 */
+}
+
+.system-info-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.system-info-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+}
+
+.system-info-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* 系统信息消息（与聊天消息风格一致） */
+.system-info-message {
+    font-size: 12px; /* 与聊天消息一致 */
+    line-height: 1.7;
+    color: #9CA3AF; /* 淡灰色，系统消息风格 */
+    text-align: left;
+    word-wrap: break-word;
+    word-break: break-word;
+    padding: 3px 0;
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.8;
+    animation: fadeInMessage 0.2s ease;
+}
+
+/* ========== 中间棋盘区域 ========== */
+.game-center-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 棋盘容器 - 放大25%，带柔光阴影 */
+.board-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 56px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 
+        0 24px 72px rgba(0, 0, 0, 0.12),
+        0 12px 32px rgba(0, 0, 0, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 0 0 1px rgba(255, 255, 255, 0.6);
+    position: relative;
+    transform: scale(1.25);
+    transform-origin: center;
+    /* 【关键修复】确保board-container本身不响应点击，只有内部的cell可以点击 */
+    pointer-events: none;
+    /* 【关键修复】确保不裁剪边缘的棋子 */
+    overflow: visible;
+}
+
+/* 棋盘左右反射光 */
+.board-reflection-left,
+.board-reflection-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 80px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.board-reflection-left {
+    left: 0;
+    background: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.3) 0%,
+        transparent 100%
+    );
+    border-radius: 36px 0 0 36px;
+}
+
+.board-reflection-right {
+    right: 0;
+    background: linear-gradient(
+        to left,
+        rgba(255, 255, 255, 0.3) 0%,
+        transparent 100%
+    );
+    border-radius: 0 36px 36px 0;
+}
+
+/* 坐标标签定位 */
+.board-container .board-coord {
+    position: absolute;
+    z-index: 10;
+}
+
+/* 操作按钮区域 */
+.game-actions {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 0;
+    margin-top: -16px;
+}
+
+.btn-action {
+    min-width: 180px;
+    height: 60px;
+    padding: 0 36px;
+    border-radius: 30px;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-action::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-action:hover::before {
+    width: 400px;
+    height: 400px;
+}
+
+.btn-action:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.15),
+        0 4px 12px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-resign {
+    background: linear-gradient(135deg, #FEE2E2, #FECACA);
+    color: #991B1B;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.btn-resign:hover {
+    background: linear-gradient(135deg, #FECACA, #FCA5A5);
+    box-shadow: 
+        0 8px 24px rgba(239, 68, 68, 0.3),
+        0 4px 12px rgba(239, 68, 68, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-restart {
+    background: linear-gradient(135deg, #FFE4CC, #FFD4A3);
+    color: #B45309;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.btn-restart:hover {
+    background: linear-gradient(135deg, #FFD4A3, #FFC085);
+    box-shadow: 
+        0 8px 24px rgba(255, 107, 107, 0.35),
+        0 4px 12px rgba(255, 107, 107, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-action:active {
+    transform: translateY(-2px);
+}
+
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1400px) {
+    .board-container {
+        transform: scale(1.15);
+    }
+}
+
+@media (max-width: 1200px) {
+    .game-layout {
+        grid-template-columns: 160px 1fr 160px;
+        gap: 24px;
+    }
+    
+    .board-container {
+        transform: scale(1.1);
+        padding: 48px;
+    }
+    
+    
+    .player-card {
+        max-width: 140px;
+        padding: 28px 20px;
+    }
+    
+    .player-avatar {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .chat-widget {
+        width: 320px;
+    }
+}
+
+@media (max-width: 768px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+        gap: 20px;
+        padding: 16px;
+    }
+    
+    .game-status-bar {
+        grid-column: 1;
+        padding: 12px 16px;
+    }
+    
+    .player-panel {
+        order: 2;
+    }
+    
+    .player-left {
+        order: 1;
+    }
+    
+    .player-right {
+        order: 3;
+    }
+    
+    .game-center-panel {
+        order: 2;
+    }
+    
+    .board-container {
+        transform: scale(1);
+        padding: 32px;
+    }
+    
+    .player-card {
+        flex-direction: row;
+        max-width: 100%;
+        padding: 20px;
+        gap: 20px;
+    }
+    
+    .player-info {
+        flex: 1;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .player-name {
+        text-align: left;
+    }
+    
+    .player-side-icon {
+        justify-content: flex-start;
+    }
+    
+    .player-avatar {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .chat-widget {
+        width: calc(100% - 32px);
+        right: 16px;
+        bottom: 16px;
+    }
+}

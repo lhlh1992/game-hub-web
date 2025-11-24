@@ -8,3 +8,4 @@ export const USE_MOCK_AUTH = env.VITE_USE_MOCK_AUTH !== 'false'
 export const API_BASE_URL = env.VITE_API_BASE_URL || ''
 export const WS_BASE_URL = env.VITE_WS_BASE_URL || ''
 
+
