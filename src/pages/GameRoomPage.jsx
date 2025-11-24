@@ -3,6 +3,21 @@ import { useParams } from 'react-router-dom'
 import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 
+const BOARD_SIZE = 15
+const CELL_SIZE = 32
+const CELL_VISUAL = CELL_SIZE * 0.8
+const BOARD_PADDING = 40
+const BOARD_LAST_INDEX = BOARD_SIZE - 1
+const BOARD_DIMENSION = CELL_SIZE * (BOARD_SIZE - 1) + CELL_SIZE * 0.4 + BOARD_PADDING * 2
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']
+const STAR_POINTS = [
+  { x: 7, y: 7, isTengen: true },
+  { x: 3, y: 3 },
+  { x: 3, y: 11 },
+  { x: 11, y: 3 },
+  { x: 11, y: 11 },
+]
+
 const DEFAULT_AVATAR = '/game-service/images/avatar-default.png'
 
 const INITIAL_CHAT_MESSAGES = [
@@ -58,6 +73,7 @@ const GameRoomPage = () => {
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
   const [opponentPlayer] = useState(DEFAULT_OPPONENT)
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
+  const [boardGrid] = useState(() => makeEmptyGrid())
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -148,7 +164,7 @@ const GameRoomPage = () => {
 
         <div className="game-center-panel">
           <div className="board-container">
-            <div id="board" aria-label="Board" />
+            <GomokuBoard grid={boardGrid} />
             <div className="board-reflection-left" />
             <div className="board-reflection-right" />
           </div>
@@ -398,6 +414,114 @@ const VictoryModal = ({ info, onClose }) => {
       </div>
     </div>
   )
+}
+
+const GomokuBoard = ({ grid }) => {
+  const cells = useMemo(() => {
+    const list = []
+    for (let x = 0; x < BOARD_SIZE; x += 1) {
+      for (let y = 0; y < BOARD_SIZE; y += 1) {
+        const value = grid?.[x]?.[y]
+        const classList = ['cell']
+        if (value === 'X' || value === 'x') {
+          classList.push('X')
+        } else if (value === 'O' || value === 'o') {
+          classList.push('O')
+        }
+        const centerX = BOARD_PADDING + y * CELL_SIZE
+        const centerY = BOARD_PADDING + x * CELL_SIZE
+        list.push(
+          <div
+            key={`cell-${x}-${y}`}
+            className={classList.join(' ')}
+            style={{
+              left: `${centerX - CELL_VISUAL / 2}px`,
+              top: `${centerY - CELL_VISUAL / 2}px`,
+            }}
+            data-x={x}
+            data-y={y}
+            title={`(${LETTERS[y]}${BOARD_SIZE - x})`}
+          />,
+        )
+      }
+    }
+    return list
+  }, [grid])
+
+  const starNodes = useMemo(() => {
+    return STAR_POINTS.map((star) => {
+      const centerX = BOARD_PADDING + star.y * CELL_SIZE
+      const centerY = BOARD_PADDING + star.x * CELL_SIZE
+      return (
+        <div
+          key={`star-${star.x}-${star.y}`}
+          className={`star-point${star.isTengen ? ' tengen' : ''}`}
+          style={{ left: `${centerX}px`, top: `${centerY}px`, transform: 'translate(-50%, -50%)' }}
+        />
+      )
+    })
+  }, [])
+
+  const coordY = useMemo(() => {
+    const labels = []
+    for (let x = 0; x < BOARD_SIZE; x += 1) {
+      const pointY = BOARD_PADDING + x * CELL_SIZE
+      labels.push(
+        <div
+          key={`coord-y-${x}`}
+          className="board-coord coord-y"
+          style={{
+            left: `${BOARD_PADDING - 20}px`,
+            top: `${pointY}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          {BOARD_SIZE - x}
+        </div>,
+      )
+    }
+    return labels
+  }, [])
+
+  const coordX = useMemo(() => {
+    const labels = []
+    const baseY = BOARD_PADDING + BOARD_LAST_INDEX * CELL_SIZE + 20
+    for (let y = 0; y < BOARD_SIZE; y += 1) {
+      const pointX = BOARD_PADDING + y * CELL_SIZE
+      labels.push(
+        <div
+          key={`coord-x-${y}`}
+          className="board-coord coord-x"
+          style={{
+            left: `${pointX}px`,
+            top: `${baseY}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          {LETTERS[y]}
+        </div>,
+      )
+    }
+    return labels
+  }, [])
+
+  return (
+    <div
+      className="board-surface"
+      style={{ width: `${BOARD_DIMENSION}px`, height: `${BOARD_DIMENSION}px` }}
+    >
+      <div id="board" style={{ width: '100%', height: '100%' }}>
+        {cells}
+        {starNodes}
+        {coordY}
+        {coordX}
+      </div>
+    </div>
+  )
+}
+
+function makeEmptyGrid(size = BOARD_SIZE) {
+  return Array.from({ length: size }, () => Array(size).fill('.'))
 }
 
 export default GameRoomPage

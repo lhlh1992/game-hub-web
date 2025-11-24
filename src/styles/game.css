@@ -1121,6 +1121,187 @@
     overflow: visible;
 }
 
+.board-surface {
+    position: relative;
+}
+
+/* 木质棋盘主体 */
+#board {
+    position: relative;
+    margin-top: 20px;
+    user-select: none;
+    background: #F5E5D0;
+    border-radius: 16px;
+    border: 3px solid #2C2C2C;
+    box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.08),
+        inset 0 -1px 4px rgba(255, 255, 255, 0.4),
+        0 12px 40px rgba(0, 0, 0, 0.15),
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 40px;
+    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
+    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
+    pointer-events: none;
+    overflow: visible;
+    background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 0, 0, 0.008) 10px, rgba(0, 0, 0, 0.008) 11px),
+        repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0, 0, 0, 0.006) 8px, rgba(0, 0, 0, 0.006) 9px);
+}
+
+#board::before {
+    content: '';
+    position: absolute;
+    top: calc(40px - 0.75px);
+    left: calc(40px - 0.75px);
+    width: calc(var(--cell) * (var(--n) - 1) + 1.5px);
+    height: calc(var(--cell) * (var(--n) - 1) + 1.5px);
+    background-image:
+        repeating-linear-gradient(to right,
+            #1A1A1A 0,
+            #1A1A1A 1.5px,
+            transparent 1.5px,
+            transparent var(--cell)
+        ),
+        repeating-linear-gradient(to bottom,
+            #1A1A1A 0,
+            #1A1A1A 1.5px,
+            transparent 1.5px,
+            transparent var(--cell)
+        );
+    background-size:
+        calc(var(--cell) * (var(--n) - 1) + 1.5px) 100%,
+        100% calc(var(--cell) * (var(--n) - 1) + 1.5px);
+    background-position: 0 0;
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.15),
+        inset 0 -1px 1px rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cell {
+    position: absolute;
+    width: calc(var(--cell) * 0.8);
+    height: calc(var(--cell) * 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    z-index: 2;
+    transition: all 0.15s ease;
+    pointer-events: auto;
+    overflow: visible;
+}
+
+.cell:hover:not(.X):not(.O) {
+    background: radial-gradient(circle, rgba(255, 184, 77, 0.15) 45%, rgba(255, 184, 77, 0.05) 60%, transparent 70%);
+    transform: scale(1.1);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cell.X,
+.cell.O {
+    color: transparent;
+}
+
+.cell.X::before,
+.cell.O::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 75%;
+    height: 75%;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.cell.X::before {
+    background: radial-gradient(circle at 30% 30%,
+        #4A4A4A 0%,
+        #3A3A3A 15%,
+        #2A2A2A 35%,
+        #1A1A1A 60%,
+        #0F0F0F 100%);
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.5),
+        0 4px 8px rgba(0, 0, 0, 0.4) inset,
+        0 -4px 8px rgba(255, 255, 255, 0.2) inset,
+        0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.cell.O::before {
+    background: radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(250, 250, 250, 0.95) 25%,
+        #F0F0F0 50%,
+        #E0E0E0 75%,
+        #D0D0D0 100%);
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.4),
+        0 4px 8px rgba(255, 255, 255, 1) inset,
+        0 -4px 8px rgba(0, 0, 0, 0.15) inset,
+        0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.cell.X::after,
+.cell.O::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(1.5px);
+    z-index: 2;
+}
+
+.cell.X::after {
+    width: 35%;
+    height: 35%;
+    background: radial-gradient(circle,
+        rgba(255, 255, 255, 0.7) 0%,
+        rgba(255, 255, 255, 0.3) 40%,
+        transparent 70%);
+}
+
+.cell.O::after {
+    width: 38%;
+    height: 38%;
+    background: radial-gradient(circle,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(255, 255, 255, 0.9) 35%,
+        rgba(255, 255, 255, 0.4) 65%,
+        transparent 85%);
+}
+
+.star-point {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2C2C2C;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.3),
+        0 1px 2px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.star-point.tengen {
+    width: 10px;
+    height: 10px;
+    background: #1A1A1A;
+    box-shadow:
+        0 0 0 1.5px rgba(255, 255, 255, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
 /* 棋盘左右反射光 */
 .board-reflection-left,
 .board-reflection-right {
@@ -1153,9 +1334,30 @@
 }
 
 /* 坐标标签定位 */
-.board-container .board-coord {
+#board .board-coord {
     position: absolute;
     z-index: 10;
+    font-size: 13px;
+    font-weight: 700;
+    color: #5a2d0c;
+    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.2px;
+    user-select: none;
+    pointer-events: none;
+}
+
+#board .coord-y {
+    width: 24px;
+    text-align: center;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+#board .coord-x {
+    width: 20px;
+    text-align: center;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
 }
 
 /* 操作按钮区域 */
