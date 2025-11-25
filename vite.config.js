@@ -17,6 +17,7 @@ export default defineConfig({
       '/game-service': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        ws: true, // 支持 WebSocket
       },
       '/system-service': {
         target: 'http://localhost:8080',

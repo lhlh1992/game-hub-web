@@ -1,8 +1,10 @@
 import SockJS from 'sockjs-client'
-import { Client } from '@stomp/stompjs'
+import { Stomp } from '@stomp/stompjs'
 import { ensureAuthenticated, performSessionLogout } from '../auth/authService.js'
 
-let stompClient = null
+let socket = null
+let stomp = null
+let hasShownConnectPopup = false
 const subscriptions = new Map()
 
 function isUnauthorizedWebSocketError(error) {
@@ -26,10 +28,10 @@ function isUnauthorizedWebSocketError(error) {
 }
 
 function getClient() {
-  if (!stompClient || !stompClient.connected) {
+  if (!stomp || !stomp.connected) {
     throw new Error('WebSocket 尚未连接')
   }
-  return stompClient
+  return stomp
 }
 
 /**
@@ -42,9 +44,18 @@ export async function connectWebSocket(callbacks = {}) {
     return
   }
 
-  if (stompClient?.connected) {
+  if (stomp && stomp.connected) {
     callbacks.onConnect?.()
     return
+  }
+
+  // 如果已有连接尝试，先断开
+  if (socket) {
+    try {
+      socket.close()
+    } catch (e) {
+      // ignore
+    }
   }
 
   const token = await ensureAuthenticated()
@@ -52,37 +63,66 @@ export async function connectWebSocket(callbacks = {}) {
     throw new Error('未登录')
   }
 
-  // 在 WebSocket URL 中附加 token
+  // 通过 URL 参数传递 token（SockJS 握手请求无法在请求头中传递自定义 header）
   const wsUrl = `/game-service/ws?access_token=${encodeURIComponent(token)}`
-
-  stompClient = new Client({
-    webSocketFactory: () => new SockJS(wsUrl),
-    connectHeaders: {
-      Authorization: `Bearer ${token}`,
-    },
-    debug: () => {},
-    reconnectDelay: 0,
-  })
-
-  stompClient.onConnect = () => {
-    callbacks.onConnect?.()
-  }
-
-  stompClient.onStompError = (frame) => {
-    if (isUnauthorizedWebSocketError(frame)) {
-      console.error('WebSocket 连接返回 401/未授权，重新登录')
-      performSessionLogout('WebSocket 会话已失效，请重新登录')
-      performSessionLogout('WebSocket 连接错误，请重新登录')
-      return
+  socket = new SockJS(wsUrl)
+  socket.onclose = (event) => {
+    if (event && event.code !== 1000) {
+      console.error('WebSocket 非正常断开', event.code, event.reason || '')
     }
-    callbacks.onError?.(frame)
+  }
+  stomp = Stomp.over(socket)
+
+  // 设置调试模式（可选，生产环境可关闭）
+  stomp.debug = function (str) {
+    // STOMP debug disabled
   }
 
-  stompClient.onWebSocketError = (event) => {
-    callbacks.onError?.(event)
-  }
+  const headers = { Authorization: 'Bearer ' + token }
 
-  stompClient.activate()
+  // 设置连接超时（10秒）
+  const connectTimeout = setTimeout(() => {
+    if (!stomp.connected) {
+      callbacks.onError?.(new Error('连接超时'))
+    }
+  }, 10000)
+
+  try {
+    stomp.connect(headers, (frame) => {
+      clearTimeout(connectTimeout)
+      if (!hasShownConnectPopup && typeof window !== 'undefined' && typeof window.alert === 'function') {
+        hasShownConnectPopup = true
+        window.alert('WebSocket 已连接')
+      }
+      callbacks.onConnect?.()
+    }, (error) => {
+      clearTimeout(connectTimeout)
+      // 如果是 401 / 未授权，直接自动登出
+      if (isUnauthorizedWebSocketError(error)) {
+        performSessionLogout('WebSocket 会话已失效，请重新登录')
+        return
+      }
+      logStompError(error)
+      callbacks.onError?.(error)
+    })
+  } catch (error) {
+    clearTimeout(connectTimeout)
+    console.error('WebSocket 连接异常', error)
+    callbacks.onError?.(error)
+  }
+}
+
+function logStompError(error) {
+  if (!error) {
+    return
+  }
+  const headers = error.headers || {}
+  const message = headers.message || headers.Message || error.message
+  if (message || error.body) {
+    console.error('WebSocket 错误', message || '', error.body || '')
+  } else {
+    console.error('WebSocket 错误', error)
+  }
 }
 
 export function subscribeRoom(roomId, onEvent) {
@@ -183,13 +223,18 @@ export function disconnectWebSocket() {
   subscriptions.forEach((sub) => sub.unsubscribe())
   subscriptions.clear()
 
-  if (stompClient) {
-    stompClient.deactivate()
-    stompClient = null
+  if (stomp) {
+    stomp.disconnect()
+    stomp = null
+  }
+  
+  if (socket) {
+    socket.close()
+    socket = null
   }
 }
 
 export function isConnected() {
-  return Boolean(stompClient?.connected)
+  return Boolean(stomp?.connected)
 }
 

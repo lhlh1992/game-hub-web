@@ -72,3 +72,5 @@
 - ❌ `Standard Flow Enabled: OFF` → ✅ 应该是 `ON`
 - ❌ `Web origins` 为空 → ✅ 应该包含 `http://localhost:5173`
 
+
+

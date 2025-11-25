@@ -15,15 +15,21 @@ const BOARD_SIZE = 15
 
 function normalizeGrid(raw) {
   if (!raw) {
-    return makeEmptyGrid()
+    return null
   }
-  if (Array.isArray(raw) && typeof raw[0] === 'string') {
-    return raw.map((row) => row.split(''))
+  let gridSource = raw
+  if (Array.isArray(raw.grid)) {
+    gridSource = raw.grid
+  } else if (Array.isArray(raw.cells)) {
+    gridSource = raw.cells
   }
-  if (Array.isArray(raw) && Array.isArray(raw[0])) {
-    return raw.map((row) => [...row])
+  if (Array.isArray(gridSource) && typeof gridSource[0] === 'string') {
+    return gridSource.map((row) => row.split(''))
   }
-  return makeEmptyGrid()
+  if (Array.isArray(gridSource) && Array.isArray(gridSource[0])) {
+    return gridSource.map((row) => [...row])
+  }
+  return null
 }
 
 function makeEmptyGrid(size = BOARD_SIZE) {
@@ -249,7 +255,11 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
       return
     }
     const grid = normalizeGrid(snap.board?.cells ?? snap.board)
-    setBoard(grid)
+    if (grid) {
+      setBoard(grid)
+    } else {
+      console.warn('[Gomoku] FullSync 缺少 board，跳过渲染', snap)
+    }
     setLastMove(snap.lastMove || null)
     setSideToMove(snap.sideToMove === 'O' ? 'O' : 'X')
     if (snap.mySide) {
@@ -278,16 +288,32 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
     }
   }, [startCountdownFromDeadline, stopCountdown])
 
+  const loadSnapshotRef = useRef(loadSnapshot)
+  useEffect(() => {
+    loadSnapshotRef.current = loadSnapshot
+  }, [loadSnapshot])
+
   const updateStateFromPayload = useCallback(
     (payload) => {
       if (!payload) {
         return
       }
-      if (payload.board) {
-        const nextGrid = normalizeGrid(payload.board?.grid ?? payload.board)
+      const nextGrid = normalizeGrid(payload.board)
+      if (nextGrid) {
         setBoard(nextGrid)
+      } else if (!payload.board) {
+        console.warn('[Gomoku] payload 缺少 board，跳过渲染', payload)
+      } else {
+        console.warn('[Gomoku] board 数据格式未知，跳过渲染', payload.board)
       }
       if (payload.lastMove && Number.isFinite(payload.lastMove.x) && Number.isFinite(payload.lastMove.y)) {
+        const moveSide =
+          (payload.lastMove.side || payload.lastMove.piece || payload.lastMove.player || '').toString().toUpperCase() || 'X'
+        console.info(
+          '[Gomoku] 落子',
+          `坐标=(${payload.lastMove.x}, ${payload.lastMove.y})`,
+          `棋子=${moveSide}`,
+        )
         setLastMove({ x: payload.lastMove.x, y: payload.lastMove.y })
       }
       if (payload.sideToMove) {
@@ -358,6 +384,16 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
     [loadSnapshot, onForbidden, startCountdownFromDeadline, startCountdownFromSeconds, stopCountdown, updateStateFromPayload],
   )
 
+  const handleRoomEventRef = useRef(handleRoomEvent)
+  useEffect(() => {
+    handleRoomEventRef.current = handleRoomEvent
+  }, [handleRoomEvent])
+
+  const stopCountdownRef = useRef(stopCountdown)
+  useEffect(() => {
+    stopCountdownRef.current = stopCountdown
+  }, [stopCountdown])
+
   useEffect(() => {
     if (!roomId) {
       return undefined
@@ -379,13 +415,13 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
               if (!mounted) {
                 return
               }
-              loadSnapshot(snap)
+              loadSnapshotRef.current?.(snap)
             })
             subscribeRoom(roomId, (evt) => {
               if (!mounted) {
                 return
               }
-              handleRoomEvent(evt)
+              handleRoomEventRef.current?.(evt)
             })
             sendResume(roomId, seatKeyRef.current)
           },
@@ -401,9 +437,9 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
     return () => {
       mounted = false
       disconnectWebSocket()
-      stopCountdown()
+      stopCountdownRef.current?.()
     }
-  }, [roomId, handleRoomEvent, loadSnapshot, stopCountdown])
+  }, [roomId])
 
   return {
     board,
