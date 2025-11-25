@@ -309,11 +309,6 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
       if (payload.lastMove && Number.isFinite(payload.lastMove.x) && Number.isFinite(payload.lastMove.y)) {
         const moveSide =
           (payload.lastMove.side || payload.lastMove.piece || payload.lastMove.player || '').toString().toUpperCase() || 'X'
-        console.info(
-          '[Gomoku] 落子',
-          `坐标=(${payload.lastMove.x}, ${payload.lastMove.y})`,
-          `棋子=${moveSide}`,
-        )
         setLastMove({ x: payload.lastMove.x, y: payload.lastMove.y })
       }
       if (payload.sideToMove) {

@@ -4,7 +4,6 @@ import { ensureAuthenticated, performSessionLogout } from '../auth/authService.j
 
 let socket = null
 let stomp = null
-let hasShownConnectPopup = false
 const subscriptions = new Map()
 
 function isUnauthorizedWebSocketError(error) {
@@ -90,10 +89,6 @@ export async function connectWebSocket(callbacks = {}) {
   try {
     stomp.connect(headers, (frame) => {
       clearTimeout(connectTimeout)
-      if (!hasShownConnectPopup && typeof window !== 'undefined' && typeof window.alert === 'function') {
-        hasShownConnectPopup = true
-        window.alert('WebSocket 已连接')
-      }
       callbacks.onConnect?.()
     }, (error) => {
       clearTimeout(connectTimeout)

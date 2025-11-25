@@ -6,7 +6,9 @@
 /* 变量设置 */
 :root {
     --n: 15;
-    --cell: 32px;
+    --cell: 42px;
+    --board-padding: 44px;
+    --grid-line-half: 0.75px;
     --gh-primary: #FF6B6B;
     --gh-primary-light: #FF8E53;
     --gh-primary-dark: #FF5252;
@@ -1098,37 +1100,37 @@
 
 /* 棋盘容器 - 放大25%，带柔光阴影 */
 .board-container {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 56px;
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(20px);
-    border-radius: 36px;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 
-        0 24px 72px rgba(0, 0, 0, 0.12),
-        0 12px 32px rgba(0, 0, 0, 0.08),
-        0 4px 12px rgba(0, 0, 0, 0.04),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95),
-        0 0 0 1px rgba(255, 255, 255, 0.6);
-    position: relative;
-    transform: scale(1.25);
-    transform-origin: center;
-    /* 【关键修复】确保board-container本身不响应点击，只有内部的cell可以点击 */
+    padding: 70px;
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(18px);
+    border-radius: 46px;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    box-shadow:
+        0 32px 80px rgba(15, 23, 42, 0.14),
+        0 8px 24px rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    width: fit-content;
+    margin: 0 auto;
     pointer-events: none;
-    /* 【关键修复】确保不裁剪边缘的棋子 */
     overflow: visible;
+    z-index: 1;
 }
 
 .board-surface {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* 木质棋盘主体 */
 #board {
     position: relative;
-    margin-top: 20px;
+    margin: 0;
     user-select: none;
     background: #F5E5D0;
     border-radius: 16px;
@@ -1139,9 +1141,9 @@
         0 12px 40px rgba(0, 0, 0, 0.15),
         0 4px 16px rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(0, 0, 0, 0.05);
-    padding: 40px;
-    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
-    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
+    padding: var(--board-padding);
+    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + (var(--board-padding) * 2));
+    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + (var(--board-padding) * 2));
     pointer-events: none;
     overflow: visible;
     background-image:
@@ -1152,10 +1154,10 @@
 #board::before {
     content: '';
     position: absolute;
-    top: calc(40px - 0.75px);
-    left: calc(40px - 0.75px);
-    width: calc(var(--cell) * (var(--n) - 1) + 1.5px);
-    height: calc(var(--cell) * (var(--n) - 1) + 1.5px);
+    top: calc(var(--board-padding) - var(--grid-line-half));
+    left: calc(var(--board-padding) - var(--grid-line-half));
+    width: calc(var(--cell) * (var(--n) - 1) + var(--grid-line-half) * 2);
+    height: calc(var(--cell) * (var(--n) - 1) + var(--grid-line-half) * 2);
     background-image:
         repeating-linear-gradient(to right,
             #1A1A1A 0,

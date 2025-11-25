@@ -5,9 +5,11 @@ import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 
 const BOARD_SIZE = 15
-const CELL_SIZE = 32
+const CELL_SIZE = 42
 const CELL_VISUAL = CELL_SIZE * 0.8
-const BOARD_PADDING = 40
+const BOARD_PADDING = 44
+const GRID_LINE_HALF = 0.75
+const BOARD_GRID_ORIGIN = BOARD_PADDING - GRID_LINE_HALF
 const BOARD_LAST_INDEX = BOARD_SIZE - 1
 const BOARD_DIMENSION = CELL_SIZE * (BOARD_SIZE - 1) + CELL_SIZE * 0.4 + BOARD_PADDING * 2
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']
@@ -567,8 +569,8 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
         if (isWinning) {
           classList.push('win-flash')
         }
-        const centerX = BOARD_PADDING + y * CELL_SIZE
-        const centerY = BOARD_PADDING + x * CELL_SIZE
+        const centerX = BOARD_GRID_ORIGIN + y * CELL_SIZE
+        const centerY = BOARD_GRID_ORIGIN + x * CELL_SIZE
         list.push(
           <div
             key={`cell-${x}-${y}`}
@@ -590,8 +592,8 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
 
   const starNodes = useMemo(() => {
     return STAR_POINTS.map((star) => {
-      const centerX = BOARD_PADDING + star.y * CELL_SIZE
-      const centerY = BOARD_PADDING + star.x * CELL_SIZE
+      const centerX = BOARD_GRID_ORIGIN + star.y * CELL_SIZE
+      const centerY = BOARD_GRID_ORIGIN + star.x * CELL_SIZE
       return (
         <div
           key={`star-${star.x}-${star.y}`}
@@ -605,13 +607,13 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
   const coordY = useMemo(() => {
     const labels = []
     for (let x = 0; x < BOARD_SIZE; x += 1) {
-      const pointY = BOARD_PADDING + x * CELL_SIZE
+      const pointY = BOARD_GRID_ORIGIN + x * CELL_SIZE
       labels.push(
         <div
           key={`coord-y-${x}`}
           className="board-coord coord-y"
           style={{
-            left: `${BOARD_PADDING - 20}px`,
+            left: `${BOARD_GRID_ORIGIN - 20}px`,
             top: `${pointY}px`,
             transform: 'translate(-50%, -50%)',
           }}
@@ -625,9 +627,9 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
 
   const coordX = useMemo(() => {
     const labels = []
-    const baseY = BOARD_PADDING + BOARD_LAST_INDEX * CELL_SIZE + 20
+    const baseY = BOARD_GRID_ORIGIN + BOARD_LAST_INDEX * CELL_SIZE + 20
     for (let y = 0; y < BOARD_SIZE; y += 1) {
-      const pointX = BOARD_PADDING + y * CELL_SIZE
+      const pointX = BOARD_GRID_ORIGIN + y * CELL_SIZE
       labels.push(
         <div
           key={`coord-x-${y}`}
