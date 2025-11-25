@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/lobby.css'
 import { createRoom } from '../services/api/gameApi.js'
-import { ensureAuthenticated } from '../services/auth/authService.js'
 
 const RULE_ITEMS = [
   {
@@ -32,7 +31,6 @@ const DEFAULT_CREATE_FORM = {
 }
 
 const LobbyPage = () => {
-  const [token, setToken] = useState(null)
   const [pveModalOpen, setPveModalOpen] = useState(false)
   const [pveRule, setPveRule] = useState('STANDARD')
   const [pveStatus, setPveStatus] = useState({ message: '', variant: '' })
@@ -47,29 +45,25 @@ const LobbyPage = () => {
   const [roomId, setRoomId] = useState('')
 
   const [isMatchmaking, setIsMatchmaking] = useState(false)
-  const matchmakingTimeout = useRef(null)
+  const matchmakingPollRef = useRef(null)
+  const matchmakingSuccessRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    let active = true
-    const bootstrap = async () => {
-      try {
-        const ensured = await ensureAuthenticated()
-        if (active) {
-          setToken(ensured || null)
-        }
-      } catch (error) {
-        console.error('大厅初始化失败', error)
-      }
-    }
-    bootstrap()
+    // Keycloak 已在应用启动时初始化，这里不需要再次检查认证
     return () => {
-      active = false
-      if (matchmakingTimeout.current) {
-        clearTimeout(matchmakingTimeout.current)
+      if (matchmakingPollRef.current) {
+        clearInterval(matchmakingPollRef.current)
+        matchmakingPollRef.current = null
+      }
+      if (matchmakingSuccessRef.current) {
+        clearTimeout(matchmakingSuccessRef.current)
+        matchmakingSuccessRef.current = null
       }
     }
   }, [])
+
+  // 不再需要 ensureToken，createRoom 会自动从 Keycloak 获取 token
 
   const showPVEModal = () => {
     setPveRule('STANDARD')
@@ -93,7 +87,7 @@ const LobbyPage = () => {
     setPveSubmitting(true)
     setPveStatus({ message: '正在进入游戏...', variant: '' })
     try {
-      const id = await createRoom({ mode: 'PVE', aiPiece: 'O', rule: pveRule, token })
+      const id = await createRoom({ mode: 'PVE', aiPiece: 'O', rule: pveRule })
       navigate(`/game/${id}`)
     } catch (error) {
       setPveStatus({ message: `创建失败：${error.message}`, variant: 'error' })
@@ -107,7 +101,7 @@ const LobbyPage = () => {
     setCreateSubmitting(true)
     setCreateStatus({ message: '创建中...', variant: '' })
     try {
-      const id = await createRoom({ ...createForm, token })
+      const id = await createRoom({ ...createForm })
       setCreateStatus({ message: `房间创建成功：${id}`, variant: 'success' })
       setTimeout(() => {
         navigate(`/game/${id}`)
@@ -120,29 +114,44 @@ const LobbyPage = () => {
   }
 
   const handleEnterRoom = () => {
-    if (!roomId.trim()) {
+    const trimmed = roomId.trim()
+    if (!trimmed) {
       window.alert('请输入房间 ID')
       return
     }
-    navigate(`/game/${roomId.trim()}`)
+    setEnterModalOpen(false)
+    navigate(`/game/${trimmed}`)
   }
 
   const startMatchmaking = () => {
     if (isMatchmaking) return
     setIsMatchmaking(true)
-    matchmakingTimeout.current = setTimeout(() => {
+    if (matchmakingPollRef.current) {
+      clearInterval(matchmakingPollRef.current)
+    }
+    matchmakingPollRef.current = setInterval(() => {
+      console.debug('轮询匹配状态...')
+    }, 2000)
+    if (matchmakingSuccessRef.current) {
+      clearTimeout(matchmakingSuccessRef.current)
+    }
+    matchmakingSuccessRef.current = setTimeout(() => {
       window.alert('匹配成功！功能开发中，请先使用创建房间。')
       cancelMatchmaking()
     }, 5000)
   }
 
-  const cancelMatchmaking = () => {
+  const cancelMatchmaking = useCallback(() => {
     setIsMatchmaking(false)
-    if (matchmakingTimeout.current) {
-      clearTimeout(matchmakingTimeout.current)
-      matchmakingTimeout.current = null
+    if (matchmakingPollRef.current) {
+      clearInterval(matchmakingPollRef.current)
+      matchmakingPollRef.current = null
     }
-  }
+    if (matchmakingSuccessRef.current) {
+      clearTimeout(matchmakingSuccessRef.current)
+      matchmakingSuccessRef.current = null
+    }
+  }, [])
 
   const statusClass = (variant) => {
     if (!variant) return 'status-message'
@@ -192,9 +201,10 @@ const LobbyPage = () => {
             description="快速匹配其他玩家，开始一场精彩对决"
             actionLabel="开始匹配"
             onAction={startMatchmaking}
-            actionDisabled={isMatchmaking}
-          >
-            {isMatchmaking && (
+          actionDisabled={isMatchmaking}
+          hideActionButton={isMatchmaking}
+          footer={
+            isMatchmaking ? (
               <div className="match-status">
                 <div className="match-loading">
                   <span className="loading-dot" />
@@ -206,7 +216,9 @@ const LobbyPage = () => {
                   取消匹配
                 </button>
               </div>
-            )}
+            ) : null
+          }
+          >
           </ModeCard>
         </section>
 
@@ -303,7 +315,18 @@ const LobbyPage = () => {
           <div className="form-group">
             <label>
               <span>房间ID：</span>
-              <input type="text" value={roomId} placeholder="输入房间ID" onChange={(e) => setRoomId(e.target.value)} />
+              <input
+                type="text"
+                value={roomId}
+                placeholder="输入房间ID"
+                onChange={(e) => setRoomId(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    handleEnterRoom()
+                  }
+                }}
+              />
             </label>
           </div>
         </div>
@@ -320,15 +343,28 @@ const LobbyPage = () => {
   )
 }
 
-const ModeCard = ({ icon, title, description, actionLabel, onAction, children, actionDisabled }) => {
+const ModeCard = ({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  children,
+  actionDisabled,
+  hideActionButton = false,
+  footer = null,
+}) => {
   return (
     <div className="mode-card">
       <div className="mode-icon">{icon}</div>
       <h3 className="mode-title">{title}</h3>
       <p className="mode-desc">{description}</p>
-      <button type="button" className="mode-btn primary" onClick={onAction} disabled={actionDisabled}>
-        {actionLabel}
-      </button>
+      {!hideActionButton && (
+        <button type="button" className="mode-btn primary" onClick={onAction} disabled={actionDisabled}>
+          {actionLabel}
+        </button>
+      )}
+      {footer}
       {children}
     </div>
   )

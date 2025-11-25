@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
+import { useGomokuGame } from '../hooks/useGomokuGame.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 32
@@ -18,7 +19,7 @@ const STAR_POINTS = [
   { x: 11, y: 11 },
 ]
 
-const DEFAULT_AVATAR = '/game-service/images/avatar-default.png'
+const DEFAULT_AVATAR = '/images/avatar-default.png'
 
 const INITIAL_CHAT_MESSAGES = [
   { id: 'msg-1', type: 'player1', text: 'Player1: Good luck!' },
@@ -53,6 +54,7 @@ const DEFAULT_SELF_PLAYER = {
   countdownText: '--',
   countdownClass: '',
   isWinner: false,
+  isActive: false,
 }
 
 const DEFAULT_OPPONENT = {
@@ -63,6 +65,7 @@ const DEFAULT_OPPONENT = {
   countdownText: '--',
   countdownClass: '',
   isWinner: false,
+  isActive: false,
 }
 
 const GameRoomPage = () => {
@@ -71,9 +74,29 @@ const GameRoomPage = () => {
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
-  const [opponentPlayer] = useState(DEFAULT_OPPONENT)
+  const [opponentPlayer, setOpponentPlayer] = useState(DEFAULT_OPPONENT)
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
-  const [boardGrid] = useState(() => makeEmptyGrid())
+  const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
+  const showForbiddenTip = useCallback(() => {
+    setForbiddenTipVisible(true)
+    window.setTimeout(() => setForbiddenTipVisible(false), 2000)
+  }, [])
+  const {
+    board,
+    lastMove,
+    winLines,
+    sideToMove,
+    roundInfo,
+    scoreInfo,
+    gameStatus,
+    mySide,
+    countdown,
+    systemLogs,
+    chatMessages: liveChatMessages,
+    placeStone,
+    requestResign,
+    requestRestart,
+  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -83,13 +106,25 @@ const GameRoomPage = () => {
       { id: 'sys-room', text: `Room ID: ${roomId}` },
     ]
   }, [roomId])
-  const [systemMessages] = useState(systemBootstrapMessages)
-  const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
+  const [systemMessages, setSystemMessages] = useState(systemBootstrapMessages)
+  const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
 
   useEffect(() => {
     document.title = '五子棋 - 游戏进行中'
   }, [])
+
+  useEffect(() => {
+    if (systemLogs?.length) {
+      setSystemMessages((prev) => [...prev, ...systemLogs])
+    }
+  }, [systemLogs])
+
+  useEffect(() => {
+    if (liveChatMessages?.length) {
+      setChatHistory((prev) => [...prev, ...liveChatMessages])
+    }
+  }, [liveChatMessages])
 
   useEffect(() => {
     if (!user) return
@@ -101,11 +136,34 @@ const GameRoomPage = () => {
   }, [user])
 
   useEffect(() => {
+    if (!mySide) {
+      return
+    }
+    setSelfPlayer((prev) => ({
+      ...prev,
+      sideBadgeClass: mySide === 'O' ? 'side-white' : 'side-black',
+      sideText: mySide === 'O' ? 'White' : 'Black',
+    }))
+    setOpponentPlayer((prev) => ({
+      ...prev,
+      sideBadgeClass: mySide === 'O' ? 'side-black' : 'side-white',
+      sideText: mySide === 'O' ? 'Black' : 'White',
+      name: prev.name === 'Waiting...' && mySide === 'PVE' ? 'AI Opponent' : prev.name,
+    }))
+  }, [mySide])
+
+  useEffect(() => {
     setStatusBar((prev) => ({
       ...prev,
-      turnText: `${prev.current} to play`,
+      turnText: sideToMove === 'O' ? 'White to play' : 'Black to play',
+      current: sideToMove === 'O' ? 'White' : 'Black',
+      round: roundInfo?.round ?? prev.round,
+      score: `${scoreInfo?.black ?? 0}:${scoreInfo?.white ?? 0}`,
+      gameStatus: gameStatus?.label ?? prev.gameStatus,
     }))
-  }, [])
+    setSelfPlayer((prev) => ({ ...prev, isActive: sideToMove !== 'O' }))
+    setOpponentPlayer((prev) => ({ ...prev, isActive: sideToMove === 'O' }))
+  }, [gameStatus, roundInfo, scoreInfo, sideToMove])
 
   const handleSendChat = useCallback(
     (text) => {
@@ -128,21 +186,90 @@ const GameRoomPage = () => {
   )
 
   const handleResign = useCallback(() => {
-    window.alert('认输逻辑将连接后端接口（TODO）')
-  }, [])
+    if (!window.confirm('确定要认输吗？')) {
+      return
+    }
+    requestResign()
+  }, [requestResign])
 
   const handleRestart = useCallback(() => {
-    window.alert('重新开局逻辑将连接后端接口（TODO）')
-  }, [])
+    if (!window.confirm('确定要重新开始吗？')) {
+      return
+    }
+    requestRestart()
+  }, [requestRestart])
 
   const closeVictoryModal = useCallback(() => {
     setVictoryInfo((prev) => ({ ...prev, show: false }))
   }, [])
 
-  const showForbiddenTip = useCallback(() => {
-    setForbiddenTipVisible(true)
-    window.setTimeout(() => setForbiddenTipVisible(false), 2000)
-  }, [])
+  useEffect(() => {
+    if (!gameStatus.over || !gameStatus.winner) {
+      setVictoryInfo((prev) => ({ ...prev, show: false }))
+      return
+    }
+    const winnerSide = gameStatus.winner === 'O' ? 'white' : 'black'
+    const winnerIsSelf = mySide && mySide.toUpperCase() === gameStatus.winner.toUpperCase()
+    setVictoryInfo({
+      show: true,
+      winnerName: winnerIsSelf ? selfPlayer.name : opponentPlayer.name,
+      side: winnerSide,
+    })
+  }, [gameStatus, mySide, opponentPlayer.name, selfPlayer.name])
+
+  useEffect(() => {
+    const formatSeconds = (seconds) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        return '--'
+      }
+      return `${seconds}s`
+    }
+    const classFromSeconds = (seconds) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        return ''
+      }
+      if (seconds <= 5) {
+        return 'danger'
+      }
+      if (seconds <= 10) {
+        return 'warning'
+      }
+      return 'normal'
+    }
+    const resetPlayerCountdown = (setter) => {
+      setter((prev) => ({
+        ...prev,
+        countdownText: '--',
+        countdownClass: '',
+      }))
+    }
+    const applyCountdownTo = (setter, seconds) => {
+      setter((prev) => ({
+        ...prev,
+        countdownText: formatSeconds(seconds),
+        countdownClass: classFromSeconds(seconds),
+      }))
+    }
+
+    if (!countdown?.side) {
+      resetPlayerCountdown(setSelfPlayer)
+      resetPlayerCountdown(setOpponentPlayer)
+      return
+    }
+
+    const normalizedSide = countdown.side.toUpperCase()
+    const isSelf =
+      mySide?.toUpperCase() === normalizedSide ||
+      (!mySide && ((normalizedSide === 'X' && selfPlayer.sideText === 'Black') || (normalizedSide === 'O' && selfPlayer.sideText === 'White')))
+
+    if (isSelf) {
+      applyCountdownTo(setSelfPlayer, countdown.seconds)
+      resetPlayerCountdown(setOpponentPlayer)
+    } else {
+      applyCountdownTo(setOpponentPlayer, countdown.seconds)
+      resetPlayerCountdown(setSelfPlayer)
+    }
+  }, [countdown, mySide, selfPlayer.sideText])
 
   const statusCapsules = useMemo(
     () => [
@@ -159,12 +286,12 @@ const GameRoomPage = () => {
 
         <div className="player-panel player-left">
           <PlayerCard idPrefix="self" player={selfPlayer} />
-          <GameChatPanel messages={chatMessages} onSend={handleSendChat} />
+          <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
         </div>
 
         <div className="game-center-panel">
           <div className="board-container">
-            <GomokuBoard grid={boardGrid} />
+            <GomokuBoard grid={board} lastMove={lastMove} winLines={winLines} onCellClick={placeStone} />
             <div className="board-reflection-left" />
             <div className="board-reflection-right" />
           </div>
@@ -262,10 +389,10 @@ const StatusCapsule = ({
 const PlayerCard = ({ idPrefix, player }) => {
   return (
     <div className="player-card">
-      <div className="player-status-dot" id={`${idPrefix}StatusDot`} />
+      <div className={`player-status-dot ${player.isActive ? 'is-active' : ''}`} id={`${idPrefix}StatusDot`} />
       <div className="player-avatar-stone-row">
         <div className="player-avatar-wrapper">
-          <div className="player-avatar">
+          <div className={`player-avatar ${player.isActive ? 'active-turn' : ''}`}>
             <img id={`${idPrefix}Avatar`} src={player.avatar} alt="Avatar" />
             <div className="avatar-glow-ring" />
           </div>
@@ -416,17 +543,29 @@ const VictoryModal = ({ info, onClose }) => {
   )
 }
 
-const GomokuBoard = ({ grid }) => {
+const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
   const cells = useMemo(() => {
     const list = []
     for (let x = 0; x < BOARD_SIZE; x += 1) {
       for (let y = 0; y < BOARD_SIZE; y += 1) {
         const value = grid?.[x]?.[y]
         const classList = ['cell']
+        
+        // 先计算这些变量，再使用
+        const isLast = lastMove && lastMove.x === x && lastMove.y === y
+        const winKey = `${x},${y}`
+        const isWinning = winLines?.has?.(winKey)
+        
         if (value === 'X' || value === 'x') {
           classList.push('X')
         } else if (value === 'O' || value === 'o') {
           classList.push('O')
+        }
+        if (isLast) {
+          classList.push('last')
+        }
+        if (isWinning) {
+          classList.push('win-flash')
         }
         const centerX = BOARD_PADDING + y * CELL_SIZE
         const centerY = BOARD_PADDING + x * CELL_SIZE
@@ -441,6 +580,7 @@ const GomokuBoard = ({ grid }) => {
             data-x={x}
             data-y={y}
             title={`(${LETTERS[y]}${BOARD_SIZE - x})`}
+            onClick={onCellClick}
           />,
         )
       }

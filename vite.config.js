@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    global: 'globalThis',
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -24,6 +27,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/token': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/logout': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

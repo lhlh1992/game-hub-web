@@ -42,7 +42,7 @@ const gameSections = [
         description: '支持 PVP / PVE、AI 复盘',
         badge: 'HOT',
         badgeClass: 'hot',
-        image: '/game-service/images/games/gomoku-banner.png',
+        image: '/images/games/gomoku-banner.png',
         cta: '开始',
         variant: 'primary',
       },
@@ -51,7 +51,7 @@ const gameSections = [
         description: '经典六角星棋盘，支持多人同场对战',
         badge: 'WEEKLY',
         badgeClass: 'weekly',
-        image: '/game-service/images/games/chinese-checker-logo.png',
+        image: '/images/games/chinese-checker-logo.png',
         cta: '敬请期待',
       },
       {
@@ -59,7 +59,7 @@ const gameSections = [
         description: '现代都市赛道中的极速跑酷挑战',
         badge: 'NEW',
         badgeClass: 'new',
-        image: '/game-service/images/games/alley-runner.png',
+        image: '/images/games/alley-runner.png',
         cta: '敬请期待',
       },
       {
@@ -233,7 +233,7 @@ const HeroSlide = ({ slide, isActive, index }) => {
       <article className={`slider-slide hero-welcome ${isActive ? 'is-active' : ''}`} data-slide-index={index}>
         <div className="slide-content">
           <div className="welcome-logo" aria-hidden="true">
-            <img src="/game-service/images/game-logo.png" alt="GameHub Joker logo" />
+            <img src="/images/game-logo.png" alt="GameHub Joker logo" />
             <span className="hero-logo-caption">LET&apos;S PLAY!</span>
           </div>
             <div className="welcome-text">

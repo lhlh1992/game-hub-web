@@ -191,7 +191,7 @@
     border: 3px solid rgba(255, 255, 255, 0.95);
     background-size: cover;
     background-position: center;
-    background-image: url('/game-service/images/avatar-default.png');
+    background-image: url('/images/avatar-default.png');
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 
@@ -258,7 +258,7 @@
     border: 5px solid rgba(255, 255, 255, 0.7);
     background-size: cover;
     background-position: center;
-    background-image: url('/game-service/images/avatar-default.png');
+    background-image: url('/images/avatar-default.png');
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
 }
 

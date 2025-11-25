@@ -226,7 +226,7 @@ body.home::after {
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: url('/game-service/images/nav/nav-banner-gomoku.png');
+    background-image: url('/images/nav/nav-banner-gomoku.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -248,7 +248,7 @@ body.home::after {
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: url('/game-service/images/nav/nav-chinese-checker.png');
+    background-image: url('/images/nav/nav-chinese-checker.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -269,7 +269,7 @@ body.home::after {
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: url('/game-service/images/nav/nav-alley-runner.png');
+    background-image: url('/images/nav/nav-alley-runner.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

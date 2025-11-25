@@ -2,8 +2,8 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 
 /**
- * 路由守卫（临时版本）
- * TODO: 接入真实的认证状态
+ * 路由守卫
+ * 使用 Keycloak 认证状态保护需要登录的页面
  */
 const ProtectedRoute = ({ children }) => {
   const location = useLocation()
@@ -21,5 +21,6 @@ const ProtectedRoute = ({ children }) => {
 }
 
 export default ProtectedRoute
+
 
 

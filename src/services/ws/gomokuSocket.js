@@ -1,6 +1,6 @@
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
-import { performSessionLogout } from '../auth/authService.js'
+import { ensureAuthenticated, performSessionLogout } from '../auth/authService.js'
 
 let stompClient = null
 const subscriptions = new Map()
@@ -32,7 +32,12 @@ function getClient() {
   return stompClient
 }
 
-export function connectWebSocket(token, callbacks = {}) {
+/**
+ * 连接 WebSocket
+ * 自动从 Keycloak 获取 token 并注入到连接中
+ * @param {Object} callbacks - 回调函数
+ */
+export async function connectWebSocket(callbacks = {}) {
   if (typeof window === 'undefined') {
     return
   }
@@ -42,13 +47,19 @@ export function connectWebSocket(token, callbacks = {}) {
     return
   }
 
-  const wsUrl = token
-    ? `/game-service/ws?access_token=${encodeURIComponent(token)}`
-    : '/game-service/ws'
+  const token = await ensureAuthenticated()
+  if (!token) {
+    throw new Error('未登录')
+  }
+
+  // 在 WebSocket URL 中附加 token
+  const wsUrl = `/game-service/ws?access_token=${encodeURIComponent(token)}`
 
   stompClient = new Client({
     webSocketFactory: () => new SockJS(wsUrl),
-    connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+    connectHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
     debug: () => {},
     reconnectDelay: 0,
   })
@@ -59,7 +70,9 @@ export function connectWebSocket(token, callbacks = {}) {
 
   stompClient.onStompError = (frame) => {
     if (isUnauthorizedWebSocketError(frame)) {
-      performSessionLogout('WebSocket 连接返回 401/未授权')
+      console.error('WebSocket 连接返回 401/未授权，重新登录')
+      performSessionLogout('WebSocket 会话已失效，请重新登录')
+      performSessionLogout('WebSocket 连接错误，请重新登录')
       return
     }
     callbacks.onError?.(frame)

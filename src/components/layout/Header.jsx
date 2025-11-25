@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
-import { clearToken } from '../../services/auth/authService.js'
 
 const NAV_ITEMS = [
   { label: '大厅', path: '/', dataNav: 'home' },
@@ -9,24 +8,17 @@ const NAV_ITEMS = [
   { label: '我的', path: '/profile', dataNav: 'profile' },
 ]
 
-const DEFAULT_AVATAR = '/game-service/images/avatar-default.png'
-const BELL_ICON = '/game-service/images/bell.svg'
-const LOGIN_URL = '/oauth2/authorization/keycloak'
+const DEFAULT_AVATAR = '/images/avatar-default.png'
+const BELL_ICON = '/images/bell.svg'
 
 const Header = () => {
   const location = useLocation()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading, login, logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const displayName = useMemo(
-    () => user?.nickname?.trim() || user?.username || '玩家',
-    [user],
-  )
+  const displayName = useMemo(() => user?.nickname?.trim() || user?.username || '玩家', [user])
 
-  const avatarUrl = useMemo(
-    () => (user?.avatarUrl?.trim() || DEFAULT_AVATAR),
-    [user],
-  )
+  const avatarUrl = useMemo(() => user?.avatarUrl?.trim() || DEFAULT_AVATAR, [user])
 
   const activeNav = useMemo(() => {
     if (location.pathname.startsWith('/lobby')) {
@@ -49,16 +41,11 @@ const Header = () => {
     if (!window.confirm('确定退出登录吗？')) {
       return
     }
-    clearToken()
-    const form = document.createElement('form')
-    form.method = 'post'
-    form.action = '/logout'
-    document.body.appendChild(form)
-    form.submit()
+    logout()
   }
 
   const handleLogin = () => {
-    window.location.href = LOGIN_URL
+    login()
   }
 
   return (
@@ -89,7 +76,11 @@ const Header = () => {
               <img src={BELL_ICON} alt="通知" />
             </button>
 
-            {isAuthenticated ? (
+            {isLoading ? (
+              <div className="avatar-pill is-compact" style={{ opacity: 0.5 }}>
+                <div className="avatar" style={{ backgroundImage: `url('${DEFAULT_AVATAR}')` }} />
+              </div>
+            ) : isAuthenticated ? (
               <div
                 className="avatar-pill is-compact"
                 data-role="avatar-trigger"

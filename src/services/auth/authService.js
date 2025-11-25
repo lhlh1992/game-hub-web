@@ -214,8 +214,7 @@ export async function initAndLogin() {
     return token
   }
 
-  const currentUrl = window.location.href
-  window.location.href = `${GATEWAY_LOGIN_URL}?redirect_uri=${encodeURIComponent(currentUrl)}`
+  window.location.href = GATEWAY_LOGIN_URL
   throw new Error('正在跳转到登录页面...')
 }
 
@@ -349,7 +348,8 @@ async function fetchGatewayUserProfile(token) {
       return null
     }
 
-    const profile = await res.json()
+    const body = await res.json()
+    const profile = body?.data || body
     if (profile && !profile.nickname && profile.username) {
       profile.nickname = profile.username
     }
@@ -359,5 +359,26 @@ async function fetchGatewayUserProfile(token) {
     return null
   }
 }
+
+export async function logoutFromGateway(redirectUri = window.location.origin) {
+  if (!isBrowser) {
+    return
+  }
+  try {
+    await fetch('/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch (error) {
+    console.warn('调用 /logout 失败，直接清理本地状态', error)
+  } finally {
+    clearToken()
+    sessionLoggingOut = false
+    if (redirectUri) {
+      window.location.href = redirectUri
+    }
+  }
+}
+
 
 
