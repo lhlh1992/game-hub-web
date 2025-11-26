@@ -623,7 +623,7 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
       }
     }
     return list
-  }, [grid])
+  }, [grid, lastMove, winLines, onCellClick])
 
   const starNodes = useMemo(() => {
     return STAR_POINTS.map((star) => {

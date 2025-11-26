@@ -24,7 +24,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [sideToMove, setSideToMove] = useState('X')
   const [roundInfo, setRoundInfo] = useState({ round: 1, current: 'X' })
   const [scoreInfo, setScoreInfo] = useState({ black: 0, white: 0, draws: 0 })
-  const [gameStatus, setGameStatus] = useState('PLAYING')
+  const [gameStatus, setGameStatus] = useState({ over: false, winner: null, label: 'Playing' })
   const [mySide, setMySide] = useState(null)
   const [countdown, setCountdown] = useState(null)
   const [systemLogs, setSystemLogs] = useState([])
@@ -333,7 +333,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         return
       }
 
-      if (gameStatus !== 'PLAYING') {
+      if (gameStatus?.over) {
         return
       }
 
