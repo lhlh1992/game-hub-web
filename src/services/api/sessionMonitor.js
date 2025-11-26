@@ -2,7 +2,8 @@
  * 会话监控 API 服务
  */
 
-const SESSIONS_API_URL = '/system-service/internal/sessions'
+// 直接请求 system-service，绕过网关认证
+const SESSIONS_API_URL = 'http://localhost:8082/internal/sessions'
 
 /**
  * 获取所有在线用户的会话信息
