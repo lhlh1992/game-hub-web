@@ -118,7 +118,7 @@ function detectWinLines(grid, winnerPiece) {
   return winPieces
 }
 
-export function useGomokuGame({ roomId, onForbidden } = {}) {
+export function useGomokuGame({ roomId, onForbidden, onMessage } = {}) {
   const [board, setBoard] = useState(() => makeEmptyGrid())
   const [lastMove, setLastMove] = useState(null)
   const [winLines, setWinLines] = useState(() => new Set())
@@ -214,7 +214,7 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
       // 检查WebSocket连接状态
       if (!wsConnected) {
         console.warn('WebSocket未连接，无法落子')
-        alert('连接已断开，无法落子。请刷新页面重新连接。')
+        onMessage?.('网络连接已断开，无法落子。请刷新页面重新连接。', 'error')
         return
       }
       
@@ -244,11 +244,11 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
             }
             return prev
           })
-          alert('落子失败：' + (error.message || '连接已断开'))
+          onMessage?.('落子失败，请检查网络连接后重试。', 'error')
         }
       }
     },
-    [sideToMove, wsConnected],
+    [sideToMove, wsConnected, onMessage],
   )
 
   const requestResign = useCallback(() => {

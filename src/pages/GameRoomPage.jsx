@@ -79,9 +79,14 @@ const GameRoomPage = () => {
   const [opponentPlayer, setOpponentPlayer] = useState(DEFAULT_OPPONENT)
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
   const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
+  const [messageInfo, setMessageInfo] = useState({ show: false, text: '', type: 'error' })
   const showForbiddenTip = useCallback(() => {
     setForbiddenTipVisible(true)
     window.setTimeout(() => setForbiddenTipVisible(false), 2000)
+  }, [])
+  const showMessage = useCallback((text, type = 'error') => {
+    setMessageInfo({ show: true, text, type })
+    window.setTimeout(() => setMessageInfo({ show: false, text: '', type: 'error' }), 3000)
   }, [])
   const {
     board,
@@ -99,7 +104,7 @@ const GameRoomPage = () => {
     placeStone,
     requestResign,
     requestRestart,
-  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip })
+  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip, onMessage: showMessage })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -316,6 +321,7 @@ const GameRoomPage = () => {
 
       <ForbiddenTip visible={forbiddenTipVisible} />
       <VictoryModal info={victoryInfo} onClose={closeVictoryModal} />
+      <MessageToast info={messageInfo} onClose={() => setMessageInfo({ show: false, text: '', type: 'error' })} />
     </div>
   )
 }
@@ -541,6 +547,20 @@ const VictoryModal = ({ info, onClose }) => {
             {sideText}
           </span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const MessageToast = ({ info, onClose }) => {
+  if (!info.show) return null
+  return (
+    <div className={`message-toast ${info.show ? 'show' : ''}`} onClick={onClose}>
+      <div className={`message-toast-content ${info.type}`}>
+        <span className="message-toast-icon">
+          {info.type === 'error' ? '⚠️' : 'ℹ️'}
+        </span>
+        <span className="message-toast-text">{info.text}</span>
       </div>
     </div>
   )

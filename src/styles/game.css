@@ -599,6 +599,95 @@
     border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
+/* ============================================
+   消息提示 Toast
+   ============================================ */
+.message-toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    z-index: 10001;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message-toast.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+
+.message-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 248, 240, 0.98) 100%);
+    border-radius: 16px;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 107, 107, 0.2),
+        0 0 40px rgba(255, 107, 107, 0.2);
+    min-width: 320px;
+    max-width: 500px;
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.message-toast-content.error {
+    border-left: 4px solid #F56565;
+    box-shadow: 
+        0 8px 32px rgba(245, 101, 101, 0.2),
+        0 0 0 1px rgba(245, 101, 101, 0.2),
+        0 0 40px rgba(245, 101, 101, 0.15);
+}
+
+.message-toast-content.info {
+    border-left: 4px solid #4299E1;
+    box-shadow: 
+        0 8px 32px rgba(66, 153, 225, 0.2),
+        0 0 0 1px rgba(66, 153, 225, 0.2),
+        0 0 40px rgba(66, 153, 225, 0.15);
+}
+
+.message-toast-icon {
+    font-size: 24px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.message-toast-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--gh-text);
+    line-height: 1.5;
+    flex: 1;
+}
+
+.message-toast-content:hover {
+    transform: translateY(-2px);
+}
+
+.message-toast-content.error:hover {
+    box-shadow: 
+        0 12px 40px rgba(245, 101, 101, 0.25),
+        0 0 0 1px rgba(245, 101, 101, 0.3),
+        0 0 60px rgba(245, 101, 101, 0.2);
+}
+
+.message-toast-content.info:hover {
+    box-shadow: 
+        0 12px 40px rgba(66, 153, 225, 0.25),
+        0 0 0 1px rgba(66, 153, 225, 0.3),
+        0 0 60px rgba(66, 153, 225, 0.2);
+}
+
 /* ========== 左右面板完全对称 ========== */
 /* 左侧和右侧面板使用相同的样式，确保完全对称 */
 .player-panel.player-left,
