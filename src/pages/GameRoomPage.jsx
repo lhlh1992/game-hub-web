@@ -95,6 +95,7 @@ const GameRoomPage = () => {
     countdown,
     systemLogs,
     chatMessages: liveChatMessages,
+    wsConnected,
     placeStone,
     requestResign,
     requestRestart,
@@ -287,7 +288,7 @@ const GameRoomPage = () => {
         <GameStatusBar status={statusBar} capsules={statusCapsules} onForbiddenTip={showForbiddenTip} />
 
         <div className="player-panel player-left">
-          <PlayerCard idPrefix="self" player={selfPlayer} />
+          <PlayerCard idPrefix="self" player={selfPlayer} wsConnected={wsConnected} />
           <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
         </div>
 
@@ -308,7 +309,7 @@ const GameRoomPage = () => {
         </div>
 
         <div className="player-panel player-right">
-          <PlayerCard idPrefix="opponent" player={opponentPlayer} />
+          <PlayerCard idPrefix="opponent" player={opponentPlayer} wsConnected={wsConnected} />
           <SystemInfoPanel messages={systemMessages} />
         </div>
       </main>
@@ -388,10 +389,10 @@ const StatusCapsule = ({
   )
 }
 
-const PlayerCard = ({ idPrefix, player }) => {
+const PlayerCard = ({ idPrefix, player, wsConnected = false }) => {
   return (
     <div className="player-card">
-      <div className={`player-status-dot ${player.isActive ? 'is-active' : ''}`} id={`${idPrefix}StatusDot`} />
+      <div className={`player-status-dot ${wsConnected ? 'connected' : 'disconnected'}`} id={`${idPrefix}StatusDot`} />
       <div className="player-avatar-stone-row">
         <div className="player-avatar-wrapper">
           <div className={`player-avatar ${player.isActive ? 'active-turn' : ''}`}>

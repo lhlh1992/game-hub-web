@@ -262,13 +262,27 @@
     width: 12px; /* 增大绿点尺寸 */
     height: 12px;
     border-radius: 50%;
-    background: #4CAF50; /* 柔和绿色，避免过亮 */
     border: 1px solid rgba(255, 255, 255, 0.9); /* 白色描边，在浅背景上更清晰 */
+    z-index: 10;
+    transition: all 0.3s ease; /* 平滑过渡动画 */
+}
+
+/* 已连接状态 - 绿色 */
+.player-status-dot.connected {
+    background: #4CAF50; /* 柔和绿色，避免过亮 */
     box-shadow: 
         0 0 0 1px rgba(76, 175, 80, 0.1), /* 10%外阴影，增加质感 */
         inset 0 0 4px rgba(76, 175, 80, 0.2), /* 20%内发光，更有"在线状态"质感 */
         0 1px 2px rgba(0, 0, 0, 0.08); /* 轻微外阴影 */
-    z-index: 10;
+}
+
+/* 断开连接状态 - 红色 */
+.player-status-dot.disconnected {
+    background: #F44336; /* 柔和红色 */
+    box-shadow: 
+        0 0 0 1px rgba(244, 67, 54, 0.1), /* 10%外阴影 */
+        inset 0 0 4px rgba(244, 67, 54, 0.2), /* 20%内发光 */
+        0 1px 2px rgba(0, 0, 0, 0.08); /* 轻微外阴影 */
 }
 
 /* 头像和棋子水平排列容器 */

@@ -69,6 +69,8 @@ export async function connectWebSocket(callbacks = {}) {
     if (event && event.code !== 1000) {
       console.error('WebSocket 非正常断开', event.code, event.reason || '')
     }
+    // 通知连接断开
+    callbacks.onDisconnect?.()
   }
   stomp = Stomp.over(socket)
 

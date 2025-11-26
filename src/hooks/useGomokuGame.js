@@ -9,6 +9,7 @@ import {
   sendResign,
   sendRestart,
   disconnectWebSocket,
+  isConnected,
 } from '../services/ws/gomokuSocket.js'
 
 const BOARD_SIZE = 15
@@ -129,12 +130,14 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
   const [countdown, setCountdown] = useState({ side: null, seconds: 0 })
   const [systemLogs, setSystemLogs] = useState([])
   const [chatMessages, setChatMessages] = useState([])
+  const [wsConnected, setWsConnected] = useState(false)
   const seatKeyRef = useRef(null)
   const roomRef = useRef(roomId)
   const countdownTimerRef = useRef(null)
   const countdownDeadlineRef = useRef(0)
   const chatRef = useRef([])
   const logRef = useRef([])
+  const wsCheckIntervalRef = useRef(null)
 
   useEffect(() => {
     roomRef.current = roomId
@@ -207,25 +210,45 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
       if (!Number.isFinite(xi) || !Number.isFinite(yi)) {
         return
       }
-      setBoard((prev) => {
-        if (prev[xi][yi] !== '.') {
-          return prev
-        }
-        const next = prev.map((row) => [...row])
-        next[xi][yi] = sideToMove
-        setLastMove({ x: xi, y: yi })
-        setSideToMove((s) => (s === 'X' ? 'O' : 'X'))
-        return next
-      })
+      
+      // 检查WebSocket连接状态
+      if (!wsConnected) {
+        console.warn('WebSocket未连接，无法落子')
+        alert('连接已断开，无法落子。请刷新页面重新连接。')
+        return
+      }
+      
+      // 先尝试发送，成功后再更新本地状态
       if (roomRef.current) {
         try {
           wsSendPlace(roomRef.current, xi, yi, sideToMove, seatKeyRef.current)
+          // 发送成功后，乐观更新本地状态（服务器会通过WebSocket消息确认）
+          setBoard((prev) => {
+            if (prev[xi][yi] !== '.') {
+              return prev
+            }
+            const next = prev.map((row) => [...row])
+            next[xi][yi] = sideToMove
+            setLastMove({ x: xi, y: yi })
+            setSideToMove((s) => (s === 'X' ? 'O' : 'X'))
+            return next
+          })
         } catch (error) {
           console.error('发送落子指令失败', error)
+          // 如果发送失败，回滚本地状态
+          setBoard((prev) => {
+            if (prev[xi][yi] === sideToMove) {
+              const next = prev.map((row) => [...row])
+              next[xi][yi] = '.'
+              return next
+            }
+            return prev
+          })
+          alert('落子失败：' + (error.message || '连接已断开'))
         }
       }
     },
-    [sideToMove],
+    [sideToMove, wsConnected],
   )
 
   const requestResign = useCallback(() => {
@@ -399,6 +422,8 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
         // connectWebSocket 会自动从 Keycloak 获取 token
         await connectWebSocket({
           onConnect: () => {
+            if (!mounted) return
+            setWsConnected(true)
             subscribeSeatKey((seatKey, side) => {
               seatKeyRef.current = seatKey
               if (side) {
@@ -422,16 +447,40 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
           },
           onError: (error) => {
             console.error('WebSocket 错误', error)
+            if (mounted) {
+              setWsConnected(false)
+            }
+          },
+          onDisconnect: () => {
+            if (mounted) {
+              setWsConnected(false)
+            }
           },
         })
       } catch (error) {
         console.error('初始化实时连接失败', error)
+        if (mounted) {
+          setWsConnected(false)
+        }
       }
     }
     initConnection()
+    
+    // 定期检查连接状态（作为兜底，每5秒检查一次，而不是每秒）
+    wsCheckIntervalRef.current = setInterval(() => {
+      if (mounted) {
+        setWsConnected(isConnected())
+      }
+    }, 5000)
+    
     return () => {
       mounted = false
+      if (wsCheckIntervalRef.current) {
+        clearInterval(wsCheckIntervalRef.current)
+        wsCheckIntervalRef.current = null
+      }
       disconnectWebSocket()
+      setWsConnected(false)
       stopCountdownRef.current?.()
     }
   }, [roomId])
@@ -448,6 +497,7 @@ export function useGomokuGame({ roomId, onForbidden } = {}) {
     countdown,
     systemLogs,
     chatMessages,
+    wsConnected,
     placeStone,
     requestResign,
     requestRestart,
