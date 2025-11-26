@@ -1,0 +1,298 @@
+/**
+ * 会话监控页面样式
+ */
+
+.session-monitor-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #FAFBFC 0%, #F5F7FA 100%);
+    padding: 24px;
+}
+
+.session-monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.session-monitor-header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.session-monitor-info {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.info-item {
+    font-size: 14px;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.info-item.error {
+    color: #F56565;
+}
+
+.session-monitor-loading,
+.session-monitor-error,
+.session-monitor-empty {
+    text-align: center;
+    padding: 60px 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    font-size: 16px;
+    color: #6B7280;
+}
+
+.session-monitor-error button {
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: #3B82F6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.session-monitor-error button:hover {
+    background: #2563EB;
+}
+
+.session-monitor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.user-session-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.user-session-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.user-session-card.current-user {
+    border: 2px solid #3B82F6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.user-session-card.current-user:hover {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.user-session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.user-session-header:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+}
+
+.user-session-title {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-id {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.user-nickname {
+    color: #3B82F6;
+    font-weight: 700;
+}
+
+.user-username {
+    color: #6B7280;
+    font-size: 14px;
+    font-weight: 400;
+    margin-left: 4px;
+}
+
+.current-user-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    margin-right: 8px;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.session-count {
+    font-size: 14px;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.expand-icon {
+    font-size: 12px;
+    color: #9CA3AF;
+    transition: transform 0.2s ease;
+}
+
+.user-session-details {
+    padding: 20px;
+}
+
+.session-section {
+    margin-bottom: 24px;
+}
+
+.session-section:last-child {
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.2);
+}
+
+.empty-section {
+    padding: 20px;
+    text-align: center;
+    color: #9CA3AF;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+}
+
+.session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.session-item {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 12px;
+    border-left: 4px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.session-item.login-session {
+    border-left-color: #3B82F6;
+}
+
+.session-item.ws-session {
+    border-left-color: #10B981;
+}
+
+.session-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+    transform: translateX(4px);
+}
+
+.session-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.session-id {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1F2937;
+    font-family: 'Courier New', monospace;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.status-badge.status-kicked {
+    background: rgba(245, 101, 101, 0.15);
+    color: #DC2626;
+}
+
+.status-badge.status-expired {
+    background: rgba(156, 163, 175, 0.15);
+    color: #6B7280;
+}
+
+.status-badge.status-unknown {
+    background: rgba(156, 163, 175, 0.15);
+    color: #6B7280;
+}
+
+.service-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.15);
+    color: #7C3AED;
+}
+
+.session-item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #6B7280;
+    min-width: 120px;
+}
+
+.detail-value {
+    color: #1F2937;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+    flex: 1;
+}
+

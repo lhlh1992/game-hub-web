@@ -48,6 +48,8 @@ const DEFAULT_STATUS = {
   score: '0:0',
 }
 
+const TURN_SECONDS = 30
+
 const DEFAULT_SELF_PLAYER = {
   name: '玩家',
   avatar: DEFAULT_AVATAR,
@@ -55,6 +57,7 @@ const DEFAULT_SELF_PLAYER = {
   sideText: 'Black',
   countdownText: '--',
   countdownClass: '',
+  countdownProgress: 0,
   isWinner: false,
   isActive: false,
 }
@@ -66,6 +69,7 @@ const DEFAULT_OPPONENT = {
   sideText: 'White',
   countdownText: '--',
   countdownClass: '',
+  countdownProgress: 0,
   isWinner: false,
   isActive: false,
 }
@@ -249,13 +253,17 @@ const GameRoomPage = () => {
         ...prev,
         countdownText: '--',
         countdownClass: '',
+        countdownProgress: 0,
       }))
     }
     const applyCountdownTo = (setter, seconds) => {
+      const normalizedSeconds = Number.isFinite(seconds) && seconds > 0 ? seconds : 0
+      const ratio = Math.max(0, Math.min(1, normalizedSeconds / TURN_SECONDS))
       setter((prev) => ({
         ...prev,
-        countdownText: formatSeconds(seconds),
+        countdownText: formatSeconds(normalizedSeconds),
         countdownClass: classFromSeconds(seconds),
+        countdownProgress: ratio,
       }))
     }
 
@@ -396,6 +404,11 @@ const StatusCapsule = ({
 }
 
 const PlayerCard = ({ idPrefix, player, wsConnected = false }) => {
+  const progress = Math.max(0, Math.min(1, player.countdownProgress ?? 0))
+  const dashArray = 283
+  const dashOffset = dashArray * (1 - progress)
+  const showCountdown = progress > 0
+
   return (
     <div className="player-card">
       <div className={`player-status-dot ${wsConnected ? 'connected' : 'disconnected'}`} id={`${idPrefix}StatusDot`} />
@@ -424,16 +437,17 @@ const PlayerCard = ({ idPrefix, player, wsConnected = false }) => {
                 stroke="#3B82F6"
                 strokeWidth="2"
                 strokeLinecap="round"
-                strokeDasharray="283"
-                strokeDashoffset="283"
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
                 transform="rotate(-90 50 50)"
+              style={{ opacity: showCountdown ? 1 : 0 }}
               />
             </svg>
           </div>
           <div className="player-side-text" id={`${idPrefix}SideText`}>
             {player.sideText}
           </div>
-          <div className="player-countdown-number show" id={`${idPrefix}Countdown`}>
+        <div className={`player-countdown-number ${showCountdown ? 'show' : ''}`} id={`${idPrefix}Countdown`}>
             <span className={`countdown-text ${player.countdownClass}`} id={`${idPrefix}CountdownText`}>
               {player.countdownText}
             </span>

@@ -2,496 +2,407 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   connectWebSocket,
   subscribeRoom,
-  subscribeFullSync,
   subscribeSeatKey,
-  sendResume,
-  sendPlace as wsSendPlace,
+  subscribeFullSync,
+  sendPlace,
   sendResign,
   sendRestart,
+  sendResume,
   disconnectWebSocket,
   isConnected,
 } from '../services/ws/gomokuSocket.js'
 
 const BOARD_SIZE = 15
+const EMPTY_BOARD = Array(BOARD_SIZE)
+  .fill(null)
+  .map(() => Array(BOARD_SIZE).fill(null))
 
-function normalizeGrid(raw) {
-  if (!raw) {
-    return null
-  }
-  let gridSource = raw
-  if (Array.isArray(raw.grid)) {
-    gridSource = raw.grid
-  } else if (Array.isArray(raw.cells)) {
-    gridSource = raw.cells
-  }
-  if (Array.isArray(gridSource) && typeof gridSource[0] === 'string') {
-    return gridSource.map((row) => row.split(''))
-  }
-  if (Array.isArray(gridSource) && Array.isArray(gridSource[0])) {
-    return gridSource.map((row) => [...row])
-  }
-  return null
-}
-
-function makeEmptyGrid(size = BOARD_SIZE) {
-  return Array.from({ length: size }, () => Array(size).fill('.'))
-}
-
-function saveSeatKey(roomId, side, key) {
-  if (!roomId || !side || !key) {
-    return
-  }
-  try {
-    localStorage.setItem(`room:${roomId}:seatKey:${side}`, key)
-    sessionStorage.setItem(`room:${roomId}:currentSeatKey`, key)
-  } catch (error) {
-    console.warn('保存 seatKey 失败', error)
-  }
-}
-
-function getSeatKey(roomId) {
-  if (!roomId) {
-    return null
-  }
-  try {
-    const cached = sessionStorage.getItem(`room:${roomId}:currentSeatKey`)
-    if (cached) {
-      return cached
-    }
-    const seatX = localStorage.getItem(`room:${roomId}:seatKey:X`)
-    const seatO = localStorage.getItem(`room:${roomId}:seatKey:O`)
-    const fallback = seatX || seatO
-    if (fallback) {
-      sessionStorage.setItem(`room:${roomId}:currentSeatKey`, fallback)
-    }
-    return fallback
-  } catch (error) {
-    console.warn('读取 seatKey 失败', error)
-    return null
-  }
-}
-
-function detectWinLines(grid, winnerPiece) {
-  if (!grid || !winnerPiece) {
-    return new Set()
-  }
-  const normalizedWinner = winnerPiece.toUpperCase()
-  const n = grid.length
-  const winPieces = new Set()
-  const dirs = [
-    [1, 0],
-    [0, 1],
-    [1, 1],
-    [1, -1],
-  ]
-  for (let x = 0; x < n; x += 1) {
-    for (let y = 0; y < n; y += 1) {
-      const val = grid[x][y]
-      const matches =
-        (normalizedWinner === 'X' && (val === 'X' || val === 'x' || val === 0 || val === '0')) ||
-        (normalizedWinner === 'O' && (val === 'O' || val === 'o' || val === 1 || val === '1'))
-      if (!matches) {
-        continue
-      }
-      dirs.forEach(([dx, dy]) => {
-        const line = [[x, y]]
-        let cx = x + dx
-        let cy = y + dy
-        while (cx >= 0 && cx < n && cy >= 0 && cy < n && grid[cx][cy] === val) {
-          line.push([cx, cy])
-          cx += dx
-          cy += dy
-        }
-        cx = x - dx
-        cy = y - dy
-        while (cx >= 0 && cx < n && cy >= 0 && cy < n && grid[cx][cy] === val) {
-          line.unshift([cx, cy])
-          cx -= dx
-          cy -= dy
-        }
-        if (line.length >= 5) {
-          line.slice(0, 5).forEach(([lx, ly]) => winPieces.add(`${lx},${ly}`))
-        }
-      })
-    }
-  }
-  return winPieces
-}
-
-export function useGomokuGame({ roomId, onForbidden, onMessage } = {}) {
-  const [board, setBoard] = useState(() => makeEmptyGrid())
+export function useGomokuGame({ roomId, onForbidden, onMessage }) {
+  const [board, setBoard] = useState(EMPTY_BOARD)
   const [lastMove, setLastMove] = useState(null)
-  const [winLines, setWinLines] = useState(() => new Set())
+  const [winLines, setWinLines] = useState(new Set())
   const [sideToMove, setSideToMove] = useState('X')
-  const [scoreInfo, setScoreInfo] = useState({ black: 0, white: 0 })
-  const [roundInfo, setRoundInfo] = useState({ round: 1 })
-  const [gameStatus, setGameStatus] = useState({ label: 'Playing', over: false })
+  const [roundInfo, setRoundInfo] = useState({ round: 1, current: 'X' })
+  const [scoreInfo, setScoreInfo] = useState({ black: 0, white: 0, draws: 0 })
+  const [gameStatus, setGameStatus] = useState('PLAYING')
   const [mySide, setMySide] = useState(null)
-  const [countdown, setCountdown] = useState({ side: null, seconds: 0 })
+  const [countdown, setCountdown] = useState(null)
   const [systemLogs, setSystemLogs] = useState([])
   const [chatMessages, setChatMessages] = useState([])
   const [wsConnected, setWsConnected] = useState(false)
-  const seatKeyRef = useRef(null)
-  const roomRef = useRef(roomId)
-  const countdownTimerRef = useRef(null)
-  const countdownDeadlineRef = useRef(0)
-  const chatRef = useRef([])
-  const logRef = useRef([])
-  const wsCheckIntervalRef = useRef(null)
 
+  const roomRef = useRef(roomId)
+  const seatKeyRef = useRef(null)
+
+  // 更新 roomId ref
   useEffect(() => {
     roomRef.current = roomId
-    seatKeyRef.current = getSeatKey(roomId)
   }, [roomId])
 
-  const stopCountdown = useCallback(() => {
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current)
-      countdownTimerRef.current = null
-    }
-    countdownDeadlineRef.current = 0
-    setCountdown({ side: null, seconds: 0 })
-  }, [])
-
-  const updateCountdownFromDeadline = useCallback(() => {
-    if (!countdownDeadlineRef.current) {
+  // WebSocket 连接管理
+  useEffect(() => {
+    if (!roomId) {
       return
     }
-    const remainingMs = Math.max(0, countdownDeadlineRef.current - Date.now())
-    const seconds = Math.ceil(remainingMs / 1000)
-    setCountdown((prev) => ({
-      side: prev.side,
-      seconds,
-    }))
-    if (seconds <= 0) {
-      stopCountdown()
-    }
-  }, [stopCountdown])
 
-  const startCountdownFromDeadline = useCallback(
-    (deadlineMs, sideHint) => {
-      if (!deadlineMs) {
-        stopCountdown()
-        return
-      }
-      countdownDeadlineRef.current = deadlineMs
-      const nextSide = (sideHint || sideToMove || 'X').toUpperCase()
-      setCountdown({
-        side: nextSide,
-        seconds: Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)),
+    let mounted = true
+    let checkInterval = null
+
+    const handleConnect = () => {
+      if (!mounted) return
+      setWsConnected(true)
+
+      // 订阅房间事件
+      subscribeRoom(roomId, (evt) => {
+        if (!mounted) return
+        handleRoomEvent(evt)
       })
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current)
-      }
-      countdownTimerRef.current = setInterval(updateCountdownFromDeadline, 500)
-    },
-    [sideToMove, stopCountdown, updateCountdownFromDeadline],
-  )
 
-  const startCountdownFromSeconds = useCallback(
-    (seconds, sideHint) => {
-      if (!Number.isFinite(seconds)) {
-        stopCountdown()
+      // 订阅 seatKey
+      subscribeSeatKey((seatKey, side) => {
+        if (!mounted) return
+        seatKeyRef.current = seatKey
+        setMySide(side)
+      })
+
+      // 订阅完整同步
+      subscribeFullSync((snap) => {
+        if (!mounted) return
+        handleFullSync(snap)
+      })
+
+      // 发送恢复请求
+      sendResume(roomId, seatKeyRef.current)
+    }
+
+    const handleDisconnect = () => {
+      if (!mounted) return
+      setWsConnected(false)
+    }
+
+    const handleError = (error) => {
+      if (!mounted) return
+      console.error('WebSocket 错误', error)
+      setWsConnected(false)
+      onMessage?.('连接失败，请刷新页面重试', 'error')
+    }
+
+    // 连接 WebSocket
+    connectWebSocket({
+      onConnect: handleConnect,
+      onDisconnect: handleDisconnect,
+      onError: handleError,
+    })
+
+    // 定期检查连接状态（作为备用）
+    checkInterval = setInterval(() => {
+      if (mounted) {
+        const connected = isConnected()
+        if (connected !== wsConnected) {
+          setWsConnected(connected)
+        }
+      }
+    }, 5000)
+
+    return () => {
+      mounted = false
+      if (checkInterval) {
+        clearInterval(checkInterval)
+      }
+      disconnectWebSocket()
+    }
+  }, [roomId, onMessage])
+
+  // 处理房间事件
+  const handleRoomEvent = useCallback((evt) => {
+    if (evt.type === 'STATE') {
+      const { state, series } = evt.payload || {}
+      if (state) {
+        updateGameState(state)
+      }
+      if (series) {
+        updateSeriesInfo(series)
+      }
+    } else if (evt.type === 'SNAPSHOT') {
+      const snap = evt.payload
+      if (snap) {
+        handleFullSync(snap)
+      }
+    } else if (evt.type === 'TICK') {
+      const tick = evt.payload || {}
+      if (tick.side) {
+        setCountdown({
+          side: tick.side,
+          seconds: Number.isFinite(tick.left) ? tick.left : null,
+          deadlineEpochMs: tick.deadlineEpochMs,
+        })
+      } else {
+        setCountdown(null)
+      }
+    } else if (evt.type === 'ERROR') {
+      const errorMsg = evt.payload
+      if (errorMsg) {
+        if (errorMsg.includes('禁手') || errorMsg.includes('forbidden')) {
+          onForbidden?.()
+        } else {
+          onMessage?.(errorMsg, 'error')
+        }
+      }
+    }
+  }, [onForbidden, onMessage])
+
+  const buildBoardFromPayload = useCallback((payload) => {
+    if (!payload) {
+      return null
+    }
+    const next = Array(BOARD_SIZE)
+      .fill(null)
+      .map(() => Array(BOARD_SIZE).fill(null))
+
+    const grid = Array.isArray(payload?.grid) ? payload.grid : payload
+
+    if (Array.isArray(grid)) {
+      for (let x = 0; x < BOARD_SIZE; x += 1) {
+        for (let y = 0; y < BOARD_SIZE; y += 1) {
+          const value = grid?.[x]?.[y]
+          if (value && value !== '.') {
+            next[x][y] = String(value).toUpperCase()
+          }
+        }
+      }
+      return next
+    }
+
+    if (typeof grid === 'string') {
+      for (let i = 0; i < BOARD_SIZE; i += 1) {
+        for (let j = 0; j < BOARD_SIZE; j += 1) {
+          const idx = i * BOARD_SIZE + j
+          const char = grid[idx]
+          if (char && char !== '.') {
+            next[i][j] = char.toUpperCase()
+          }
+        }
+      }
+      return next
+    }
+
+    return null
+  }, [])
+
+  // 更新游戏状态
+  const updateGameState = useCallback((state) => {
+    if (!state) return
+
+    // 更新棋盘
+    if (state.board) {
+      const boardFromState = buildBoardFromPayload(state.board)
+      if (boardFromState) {
+        setBoard(boardFromState)
+      }
+    }
+
+    // 更新最后一步
+    if (state.lastMove) {
+      setLastMove({ x: state.lastMove[0], y: state.lastMove[1] })
+    } else {
+      setLastMove(null)
+    }
+
+    // 更新获胜线
+    if (state.winLines && Array.isArray(state.winLines)) {
+      const winSet = new Set()
+      state.winLines.forEach((line) => {
+        if (Array.isArray(line)) {
+          line.forEach(([x, y]) => {
+            winSet.add(`${x},${y}`)
+          })
+        }
+      })
+      setWinLines(winSet)
+    } else {
+      setWinLines(new Set())
+    }
+
+    // 更新当前回合
+    if (state.current) {
+      setSideToMove(state.current.toUpperCase())
+    }
+
+    // 更新游戏状态
+    if (state.over !== undefined) {
+      setGameStatus({
+        over: Boolean(state.over),
+        winner: state.winner || null,
+        label: state.over ? 'Finished' : 'Playing',
+      })
+    }
+
+    // 更新回合信息
+    if (state.index !== undefined) {
+      setRoundInfo((prev) => ({
+        ...prev,
+        round: state.index || 1,
+        current: state.current || 'X',
+      }))
+    }
+  }, [buildBoardFromPayload])
+
+  // 更新系列信息（多盘比分）
+  const updateSeriesInfo = useCallback((series) => {
+    if (series) {
+      setScoreInfo({
+        black: series.blackWins || 0,
+        white: series.whiteWins || 0,
+        draws: series.draws || 0,
+      })
+      if (series.currentIndex) {
+        setRoundInfo((prev) => ({
+          ...prev,
+          round: series.currentIndex,
+        }))
+      }
+    }
+  }, [])
+
+  // 处理完整同步
+  const handleFullSync = useCallback(
+    (snap) => {
+      if (!snap) {
         return
       }
-      startCountdownFromDeadline(Date.now() + seconds * 1000, sideHint)
+      if (snap.state) {
+        updateGameState(snap.state)
+      } else if (snap.cells) {
+        const boardFromCells = buildBoardFromPayload(snap.cells)
+        if (boardFromCells) {
+          setBoard(boardFromCells)
+        }
+        if (snap.sideToMove) {
+          setSideToMove(String(snap.sideToMove).toUpperCase())
+        }
+        if (snap.round) {
+          setRoundInfo((prev) => ({
+            ...prev,
+            round: snap.round,
+          }))
+        }
+        if (snap.scoreX !== undefined || snap.scoreO !== undefined) {
+          setScoreInfo({
+            black: snap.scoreX ?? scoreInfo.black,
+            white: snap.scoreO ?? scoreInfo.white,
+            draws: scoreInfo.draws,
+          })
+        }
+      }
+      if (snap.series) {
+        updateSeriesInfo(snap.series)
+      }
+      if (snap.seatKey) {
+        seatKeyRef.current = snap.seatKey
+      }
+      if (snap.side) {
+        setMySide(snap.side)
+      } else if (snap.mySide) {
+        setMySide(snap.mySide)
+      }
     },
-    [startCountdownFromDeadline, stopCountdown],
+    [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
   )
 
+  // 落子
   const placeStone = useCallback(
     (event) => {
-      if (!event?.currentTarget) {
-        return
+      const connected = isConnected()
+      if (connected !== wsConnected) {
+        setWsConnected(connected)
       }
-      const { x, y } = event.currentTarget.dataset
-      const xi = Number(x)
-      const yi = Number(y)
-      if (!Number.isFinite(xi) || !Number.isFinite(yi)) {
-        return
-      }
-      
-      // 检查WebSocket连接状态
-      if (!wsConnected) {
-        console.warn('WebSocket未连接，无法落子')
+      if (!connected) {
         onMessage?.('网络连接已断开，无法落子。请刷新页面重新连接。', 'error')
         return
       }
-      
-      // 先尝试发送，成功后再更新本地状态
+
+      const cell = event.currentTarget
+      const x = parseInt(cell.dataset.x, 10)
+      const y = parseInt(cell.dataset.y, 10)
+
+      if (isNaN(x) || isNaN(y)) {
+        return
+      }
+
+      if (board[x][y] !== null) {
+        return
+      }
+
+      if (gameStatus !== 'PLAYING') {
+        return
+      }
+
+      if (mySide && sideToMove !== mySide) {
+        onMessage?.('不是你的回合', 'error')
+        return
+      }
+
       if (roomRef.current) {
         try {
-          wsSendPlace(roomRef.current, xi, yi, sideToMove, seatKeyRef.current)
-          // 发送成功后，乐观更新本地状态（服务器会通过WebSocket消息确认）
+          sendPlace(roomRef.current, x, y, sideToMove, seatKeyRef.current)
+          // 乐观更新：立即更新本地棋盘（如果发送失败，服务器会同步正确状态）
           setBoard((prev) => {
-            if (prev[xi][yi] !== '.') {
-              return prev
-            }
-            const next = prev.map((row) => [...row])
-            next[xi][yi] = sideToMove
-            setLastMove({ x: xi, y: yi })
-            setSideToMove((s) => (s === 'X' ? 'O' : 'X'))
-            return next
+            const newBoard = prev.map((row) => [...row])
+            newBoard[x][y] = sideToMove
+            return newBoard
           })
+          setLastMove({ x, y })
+          setSideToMove((s) => (s === 'X' ? 'O' : 'X'))
         } catch (error) {
           console.error('发送落子指令失败', error)
-          // 如果发送失败，回滚本地状态
-          setBoard((prev) => {
-            if (prev[xi][yi] === sideToMove) {
-              const next = prev.map((row) => [...row])
-              next[xi][yi] = '.'
-              return next
-            }
-            return prev
-          })
           onMessage?.('落子失败，请检查网络连接后重试。', 'error')
         }
       }
     },
-    [sideToMove, wsConnected, onMessage],
+    [board, sideToMove, mySide, gameStatus, wsConnected, onMessage],
   )
 
+  // 认输
   const requestResign = useCallback(() => {
-    if (!roomRef.current) {
+    if (!wsConnected) {
+      onMessage?.('网络连接已断开，无法认输。请刷新页面重新连接。', 'error')
       return
     }
-    try {
-      sendResign(roomRef.current, seatKeyRef.current)
-    } catch (error) {
-      console.error('发送认输失败', error)
-    }
-  }, [])
 
-  const requestRestart = useCallback(() => {
-    if (!roomRef.current) {
-      return
-    }
-    try {
-      sendRestart(roomRef.current, seatKeyRef.current)
-    } catch (error) {
-      console.error('发送重新开始失败', error)
-    }
-  }, [])
-
-  const loadSnapshot = useCallback((snap) => {
-    if (!snap) {
-      return
-    }
-    const grid = normalizeGrid(snap.board?.cells ?? snap.board)
-    if (grid) {
-      setBoard(grid)
-    } else {
-      console.warn('[Gomoku] FullSync 缺少 board，跳过渲染', snap)
-    }
-    setLastMove(snap.lastMove || null)
-    setSideToMove(snap.sideToMove === 'O' ? 'O' : 'X')
-    if (snap.mySide) {
-      setMySide(snap.mySide)
-    }
-    setScoreInfo({
-      black: snap.seriesView?.scoreX ?? 0,
-      white: snap.seriesView?.scoreO ?? 0,
-    })
-    setRoundInfo({
-      round: snap.round ?? snap.seriesView?.round ?? 1,
-    })
-    if (snap.outcome === 'X_WIN' || snap.outcome === 'O_WIN') {
-      const winnerPiece = snap.outcome === 'X_WIN' ? 'X' : 'O'
-      setWinLines(detectWinLines(grid, winnerPiece))
-      setGameStatus({ label: 'Ended', over: true, winner: winnerPiece })
-      stopCountdown()
-    } else {
-      setWinLines(new Set())
-      setGameStatus({ label: 'Playing', over: false })
-      if (snap.deadlineEpochMs && snap.deadlineEpochMs > 0) {
-        startCountdownFromDeadline(snap.deadlineEpochMs, snap.sideToMove)
-      } else {
-        stopCountdown()
-      }
-    }
-  }, [startCountdownFromDeadline, stopCountdown])
-
-  const loadSnapshotRef = useRef(loadSnapshot)
-  useEffect(() => {
-    loadSnapshotRef.current = loadSnapshot
-  }, [loadSnapshot])
-
-  const updateStateFromPayload = useCallback(
-    (payload) => {
-      if (!payload) {
-        return
-      }
-      const nextGrid = normalizeGrid(payload.board)
-      if (nextGrid) {
-        setBoard(nextGrid)
-      } else if (!payload.board) {
-        console.warn('[Gomoku] payload 缺少 board，跳过渲染', payload)
-      } else {
-        console.warn('[Gomoku] board 数据格式未知，跳过渲染', payload.board)
-      }
-      if (payload.lastMove && Number.isFinite(payload.lastMove.x) && Number.isFinite(payload.lastMove.y)) {
-        const moveSide =
-          (payload.lastMove.side || payload.lastMove.piece || payload.lastMove.player || '').toString().toUpperCase() || 'X'
-        setLastMove({ x: payload.lastMove.x, y: payload.lastMove.y })
-      }
-      if (payload.sideToMove) {
-        setSideToMove(payload.sideToMove === 'O' ? 'O' : 'X')
-      }
-      if (payload.series) {
-        setRoundInfo((prev) => ({ round: payload.series.index ?? prev.round }))
-        setScoreInfo((prev) => ({
-          black: payload.series.blackWins ?? prev.black,
-          white: payload.series.whiteWins ?? prev.white,
-        }))
-      }
-      if (payload.over || payload.outcome) {
-        const winnerPiece =
-          payload.winner ||
-          (payload.outcome === 'X_WIN' ? 'X' : payload.outcome === 'O_WIN' ? 'O' : null)
-        if (winnerPiece) {
-          const gridSource = normalizeGrid(payload.board?.grid ?? payload.board ?? board)
-          setWinLines(detectWinLines(gridSource, winnerPiece))
-          setGameStatus({ label: 'Ended', over: true, winner: winnerPiece })
-          stopCountdown()
-        }
-      } else {
-        setWinLines(new Set())
-        setGameStatus({ label: 'Playing', over: false })
-        if (payload.deadlineEpochMs) {
-          startCountdownFromDeadline(payload.deadlineEpochMs, payload.sideToMove || payload.current)
-        } else if (typeof payload.left === 'number') {
-          startCountdownFromSeconds(payload.left, payload.sideToMove || payload.current)
-        }
-      }
-    },
-    [board, startCountdownFromDeadline, startCountdownFromSeconds, stopCountdown],
-  )
-
-  const handleRoomEvent = useCallback(
-    (evt) => {
-      if (!evt) {
-        return
-      }
-      if (evt.type === 'TICK') {
-        const payload = evt.payload || {}
-        if (typeof payload.deadlineEpochMs === 'number' && payload.deadlineEpochMs > 0) {
-          startCountdownFromDeadline(payload.deadlineEpochMs, payload.side)
-        } else if (typeof payload.left === 'number') {
-          startCountdownFromSeconds(payload.left, payload.side)
-        }
-        return
-      }
-      if (evt.type === 'TIMEOUT') {
-        stopCountdown()
-        return
-      }
-      if (evt.type === 'SNAPSHOT') {
-        loadSnapshot(evt.payload)
-        return
-      }
-      if (evt.type === 'ERROR') {
-        const message = evt.payload?.message || evt.payload || ''
-        if (typeof message === 'string' && message.includes('禁手')) {
-          onForbidden?.()
-        }
-        return
-      }
-      const payload = evt.payload || evt
-      updateStateFromPayload(payload.state || payload)
-    },
-    [loadSnapshot, onForbidden, startCountdownFromDeadline, startCountdownFromSeconds, stopCountdown, updateStateFromPayload],
-  )
-
-  const handleRoomEventRef = useRef(handleRoomEvent)
-  useEffect(() => {
-    handleRoomEventRef.current = handleRoomEvent
-  }, [handleRoomEvent])
-
-  const stopCountdownRef = useRef(stopCountdown)
-  useEffect(() => {
-    stopCountdownRef.current = stopCountdown
-  }, [stopCountdown])
-
-  useEffect(() => {
-    if (!roomId) {
-      return undefined
-    }
-    let mounted = true
-    const initConnection = async () => {
+    if (roomRef.current) {
       try {
-        // connectWebSocket 会自动从 Keycloak 获取 token
-        await connectWebSocket({
-          onConnect: () => {
-            if (!mounted) return
-            setWsConnected(true)
-            subscribeSeatKey((seatKey, side) => {
-              seatKeyRef.current = seatKey
-              if (side) {
-                saveSeatKey(roomId, side, seatKey)
-                setMySide(side)
-              }
-            })
-            subscribeFullSync((snap) => {
-              if (!mounted) {
-                return
-              }
-              loadSnapshotRef.current?.(snap)
-            })
-            subscribeRoom(roomId, (evt) => {
-              if (!mounted) {
-                return
-              }
-              handleRoomEventRef.current?.(evt)
-            })
-            sendResume(roomId, seatKeyRef.current)
-          },
-          onError: (error) => {
-            console.error('WebSocket 错误', error)
-            if (mounted) {
-              setWsConnected(false)
-            }
-          },
-          onDisconnect: () => {
-            if (mounted) {
-              setWsConnected(false)
-            }
-          },
-        })
+        sendResign(roomRef.current, seatKeyRef.current)
       } catch (error) {
-        console.error('初始化实时连接失败', error)
-        if (mounted) {
-          setWsConnected(false)
-        }
+        console.error('发送认输指令失败', error)
+        onMessage?.('认输失败，请检查网络连接后重试。', 'error')
       }
     }
-    initConnection()
-    
-    // 定期检查连接状态（作为兜底，每5秒检查一次，而不是每秒）
-    wsCheckIntervalRef.current = setInterval(() => {
-      if (mounted) {
-        setWsConnected(isConnected())
-      }
-    }, 5000)
-    
-    return () => {
-      mounted = false
-      if (wsCheckIntervalRef.current) {
-        clearInterval(wsCheckIntervalRef.current)
-        wsCheckIntervalRef.current = null
-      }
-      disconnectWebSocket()
-      setWsConnected(false)
-      stopCountdownRef.current?.()
+  }, [wsConnected, onMessage])
+
+  // 重开
+  const requestRestart = useCallback(() => {
+    if (!wsConnected) {
+      onMessage?.('网络连接已断开，无法重开。请刷新页面重新连接。', 'error')
+      return
     }
-  }, [roomId])
+
+    if (roomRef.current) {
+      try {
+        sendRestart(roomRef.current, seatKeyRef.current)
+      } catch (error) {
+        console.error('发送重开指令失败', error)
+        onMessage?.('重开失败，请检查网络连接后重试。', 'error')
+      }
+    }
+  }, [wsConnected, onMessage])
 
   return {
     board,
     lastMove,
     winLines,
     sideToMove,
-    scoreInfo,
     roundInfo,
+    scoreInfo,
     gameStatus,
     mySide,
     countdown,
@@ -501,9 +412,5 @@ export function useGomokuGame({ roomId, onForbidden, onMessage } = {}) {
     placeStone,
     requestResign,
     requestRestart,
-    loadSnapshot,
-    appendSystemLog: (entry) => setSystemLogs((prev) => [...prev, entry]),
-    appendChatMessage: (entry) => setChatMessages((prev) => [...prev, entry]),
   }
 }
-

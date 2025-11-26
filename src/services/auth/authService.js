@@ -263,26 +263,36 @@ export async function validateToken(token) {
   }
 }
 
-export async function ensureAuthenticated() {
-  let token = await getTokenFromGateway()
-  if (token) {
-    const isValid = await validateToken(token)
-    if (isValid) {
-      return token
+export async function ensureAuthenticated(autoLogin = true) {
+  // autoLogin 模式下优先从网关获取最新 token（可自动刷新）
+  if (autoLogin) {
+    let token = await getTokenFromGateway()
+    if (token) {
+      const isValid = await validateToken(token)
+      if (isValid) {
+        return token
+      }
+      clearToken()
+    }
+  }
+
+  // 其次尝试使用本地保存的 token
+  let localToken = getToken()
+  if (localToken) {
+    const isLocalValid = await validateToken(localToken)
+    if (isLocalValid) {
+      return localToken
     }
     clearToken()
   }
 
-  token = getToken()
-  if (token) {
-    const isValid = await validateToken(token)
-    if (isValid) {
-      return token
-    }
-    clearToken()
+  // 非 autoLogin 模式不触发跳转登录，也不再尝试获取网关 token
+  if (!autoLogin) {
+    return null
   }
 
-  token = await initAndLogin()
+  // 最后触发登录流程
+  const token = await initAndLogin()
   return token
 }
 

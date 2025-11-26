@@ -5,6 +5,12 @@ import { ensureAuthenticated, performSessionLogout } from '../auth/authService.j
 let socket = null
 let stomp = null
 const subscriptions = new Map()
+const isDevEnv = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV
+
+function logWs(...args) {
+  const logger = isDevEnv ? console.debug : console.info
+  logger('[WS]', ...args)
+}
 
 function isUnauthorizedWebSocketError(error) {
   if (!error) {
@@ -52,6 +58,7 @@ export async function connectWebSocket(callbacks = {}) {
   if (socket) {
     try {
       socket.close()
+      logWs('关闭已有 SockJS 连接')
     } catch (e) {
       // ignore
     }
@@ -64,11 +71,13 @@ export async function connectWebSocket(callbacks = {}) {
 
   // 通过 URL 参数传递 token（SockJS 握手请求无法在请求头中传递自定义 header）
   const wsUrl = `/game-service/ws?access_token=${encodeURIComponent(token)}`
+  logWs('开始建立连接', { url: '/game-service/ws', hasToken: Boolean(token) })
   socket = new SockJS(wsUrl)
   socket.onclose = (event) => {
     if (event && event.code !== 1000) {
       console.error('WebSocket 非正常断开', event.code, event.reason || '')
     }
+    logWs('连接关闭', { code: event?.code, reason: event?.reason })
     // 通知连接断开
     callbacks.onDisconnect?.()
   }
@@ -84,6 +93,7 @@ export async function connectWebSocket(callbacks = {}) {
   // 设置连接超时（10秒）
   const connectTimeout = setTimeout(() => {
     if (!stomp.connected) {
+      logWs('连接超时')
       callbacks.onError?.(new Error('连接超时'))
     }
   }, 10000)
@@ -91,20 +101,24 @@ export async function connectWebSocket(callbacks = {}) {
   try {
     stomp.connect(headers, (frame) => {
       clearTimeout(connectTimeout)
+      logWs('连接成功', { sessionId: frame?.headers['session'] })
       callbacks.onConnect?.()
     }, (error) => {
       clearTimeout(connectTimeout)
       // 如果是 401 / 未授权，直接自动登出
       if (isUnauthorizedWebSocketError(error)) {
+        logWs('连接被拒绝，未授权', error)
         performSessionLogout('WebSocket 会话已失效，请重新登录')
         return
       }
       logStompError(error)
+      logWs('连接错误', error)
       callbacks.onError?.(error)
     })
   } catch (error) {
     clearTimeout(connectTimeout)
     console.error('WebSocket 连接异常', error)
+    logWs('连接异常', error)
     callbacks.onError?.(error)
   }
 }
@@ -221,11 +235,13 @@ export function disconnectWebSocket() {
   subscriptions.clear()
 
   if (stomp) {
+    logWs('手动断开 STOMP 连接')
     stomp.disconnect()
     stomp = null
   }
   
   if (socket) {
+    logWs('手动关闭 SockJS')
     socket.close()
     socket = null
   }

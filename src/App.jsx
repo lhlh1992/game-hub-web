@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx'
 import LobbyPage from './pages/LobbyPage.jsx'
 import GameRoomPage from './pages/GameRoomPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import SessionMonitorPage from './pages/SessionMonitorPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/sessions" element={<SessionMonitorPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

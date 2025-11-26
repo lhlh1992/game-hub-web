@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   ensureAuthenticated,
   getUserInfo,
   initAndLogin,
   logoutFromGateway,
 } from '../services/auth/authService.js'
+
+const PUBLIC_ROUTES = ['/sessions']
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -19,13 +22,25 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState(null)
+  const location = useLocation()
+  const isPublicRoute = PUBLIC_ROUTES.some((path) => location.pathname.startsWith(path))
+
+  const loadUserProfile = useCallback(async () => {
+    try {
+      const profile = await getUserInfo()
+      setUser(profile || null)
+    } catch (error) {
+      console.error('加载用户信息失败', error)
+      setUser(null)
+    }
+  }, [])
 
   useEffect(() => {
     let mounted = true
 
     async function bootstrap() {
       try {
-        const token = await ensureAuthenticated()
+        const token = await ensureAuthenticated(!isPublicRoute)
         if (!mounted) {
           return
         }
@@ -34,6 +49,9 @@ export function AuthProvider({ children }) {
           await loadUserProfile()
         } else {
           setIsAuthenticated(false)
+          if (isPublicRoute) {
+            setUser(null)
+          }
         }
       } catch (error) {
         if (!mounted) {
@@ -53,17 +71,7 @@ export function AuthProvider({ children }) {
     return () => {
       mounted = false
     }
-  }, [])
-
-  const loadUserProfile = useCallback(async () => {
-    try {
-      const profile = await getUserInfo()
-      setUser(profile || null)
-    } catch (error) {
-      console.error('加载用户信息失败', error)
-      setUser(null)
-    }
-  }, [])
+  }, [isPublicRoute, loadUserProfile])
 
   const login = useCallback(() => {
     initAndLogin().catch((error) => console.warn('跳转登录失败', error))
