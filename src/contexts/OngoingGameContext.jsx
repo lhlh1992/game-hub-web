@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { getOngoingGame } from '../services/api/gameApi.js'
+import { endOngoingGame, getOngoingGame } from '../services/api/gameApi.js'
 
 const OngoingGameContext = createContext({
   loading: true,
   data: null,
   error: null,
   refresh: () => {},
+  end: async () => {},
 })
 
 export const OngoingGameProvider = ({ children }) => {
@@ -34,14 +35,30 @@ export const OngoingGameProvider = ({ children }) => {
     fetchOngoingGame()
   }, [fetchOngoingGame])
 
+  const endCurrentGame = useCallback(
+    async (roomId) => {
+      try {
+        await endOngoingGame(roomId)
+      } catch (error) {
+        console.error('[OngoingGame] 结束对局失败', error)
+        setState((prev) => ({ ...prev, error }))
+        throw error
+      } finally {
+        setState((prev) => ({ ...prev, data: null }))
+      }
+    },
+    [],
+  )
+
   const contextValue = useMemo(
     () => ({
       loading: state.loading,
       data: state.data,
       error: state.error,
       refresh: fetchOngoingGame,
+      end: endCurrentGame,
     }),
-    [state, fetchOngoingGame],
+    [state, fetchOngoingGame, endCurrentGame],
   )
 
   return <OngoingGameContext.Provider value={contextValue}>{children}</OngoingGameContext.Provider>

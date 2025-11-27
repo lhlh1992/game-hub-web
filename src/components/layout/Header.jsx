@@ -10,7 +10,8 @@ const Header = () => {
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading, login, logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const { data: ongoingGame } = useOngoingGame()
+  const [ending, setEnding] = useState(false)
+  const { data: ongoingGame, end: endOngoing } = useOngoingGame()
   const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
 
   const displayName = useMemo(() => user?.nickname?.trim() || user?.username || '玩家', [user])
@@ -40,6 +41,22 @@ const Header = () => {
     login()
   }
 
+  const handleQuitGame = async () => {
+    if (!ongoing?.roomId || ending) return
+    const confirmed = window.confirm('确认离开当前对局并返回大厅？')
+    if (!confirmed) return
+    setEnding(true)
+    try {
+      await endOngoing?.(ongoing.roomId)
+      navigate('/lobby')
+    } catch (error) {
+      console.error('结束对局失败', error)
+      window.alert('结束对局失败，请稍后再试')
+    } finally {
+      setEnding(false)
+    }
+  }
+
   return (
     <div data-component="global-header">
       <header className="gh-header">
@@ -51,10 +68,21 @@ const Header = () => {
 
           <div className="header-tools">
             {ongoing ? (
-              <button className="ongoing-pill" type="button" onClick={handleContinueGame}>
-                <span className="pill-label">继续对局</span>
-                <span className="pill-title">{ongoing.title || '返回游戏'}</span>
-              </button>
+              <div className="ongoing-pill">
+                <button className="pill-main" type="button" onClick={handleContinueGame}>
+                  <span className="pill-label">继续对局</span>
+                  <span className="pill-title">{ongoing.title || '返回游戏'}</span>
+                </button>
+                <button
+                  className="pill-exit"
+                  type="button"
+                  onClick={handleQuitGame}
+                  disabled={ending}
+                  aria-label="结束当前对局"
+                >
+                  退出
+                </button>
+              </div>
             ) : null}
             <button className="bell" type="button" aria-label="通知">
               <img src={BELL_ICON} alt="通知" />

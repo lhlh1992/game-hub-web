@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
+import { useOngoingGame } from '../hooks/useOngoingGame.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 42
@@ -76,7 +77,9 @@ const DEFAULT_OPPONENT = {
 
 const GameRoomPage = () => {
   const { roomId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
+  const { end: endOngoing } = useOngoingGame()
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -121,6 +124,7 @@ const GameRoomPage = () => {
   const [systemMessages, setSystemMessages] = useState(systemBootstrapMessages)
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
     document.title = '五子棋 - 游戏进行中'
@@ -212,6 +216,25 @@ const GameRoomPage = () => {
     }
     requestRestart()
   }, [requestRestart])
+
+  const handleLeaveRoom = useCallback(async () => {
+    if (leaving) {
+      return
+    }
+    if (!window.confirm('确认离开当前房间并返回大厅吗？')) {
+      return
+    }
+    setLeaving(true)
+    try {
+      await endOngoing?.(roomId)
+    } catch (error) {
+      console.error('离开房间失败', error)
+      window.alert('离开房间失败，请稍后再试')
+    } finally {
+      setLeaving(false)
+      navigate('/lobby')
+    }
+  }, [endOngoing, leaving, navigate, roomId])
 
   const closeVictoryModal = useCallback(() => {
     setVictoryInfo((prev) => ({ ...prev, show: false }))
@@ -305,6 +328,14 @@ const GameRoomPage = () => {
         <div className="player-panel player-left">
           <PlayerCard idPrefix="self" player={selfPlayer} wsConnected={wsConnected} />
           <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
+          <div className="leave-room-panel">
+            <span className="leave-arrow" aria-hidden="true">
+              ←
+            </span>
+            <button type="button" className="leave-room-btn" onClick={handleLeaveRoom} disabled={leaving}>
+              Leave Room
+            </button>
+          </div>
         </div>
 
         <div className="game-center-panel">

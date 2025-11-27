@@ -61,5 +61,17 @@ export async function getOngoingGame() {
   }
 }
 
+/**
+ * 结束当前进行中的游戏
+ * @param {string} [roomId]
+ */
+export async function endOngoingGame(roomId) {
+  try {
+    return await handleApiResponse(post('/game-service/api/ongoing-game/end', { roomId }))
+  } catch (error) {
+    throw new Error(`结束进行中对局失败: ${error.message}`)
+  }
+}
+
 
 
