@@ -195,6 +195,76 @@ body.home::after {
     width: 100%;
 }
 
+.ongoing-game-highlight {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 24px 32px;
+    border-radius: var(--radius-card);
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.95), rgba(255, 244, 236, 0.9));
+    border: 1px solid rgba(255, 107, 107, 0.15);
+    box-shadow: var(--shadow-card);
+}
+
+.ongoing-card-meta .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--gh-text-muted);
+    margin-bottom: 6px;
+}
+
+.ongoing-card-meta h3 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    color: var(--gh-text);
+}
+
+.ongoing-card-meta .description {
+    margin: 0;
+    color: var(--gh-text-muted);
+}
+
+.ongoing-card-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.continue-btn {
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    box-shadow: var(--shadow-button);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.continue-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-button-hover);
+}
+
+.ghost-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    color: var(--gh-primary);
+    padding: 12px 24px;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.ghost-btn:hover {
+    border-color: var(--gh-primary);
+    color: var(--gh-primary-dark);
+}
+
 .utility-panels {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

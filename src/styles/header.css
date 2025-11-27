@@ -128,8 +128,46 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 12px;
     justify-self: end;
+}
+
+.ongoing-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-secondary));
+    color: #fff;
+    border: none;
+    box-shadow: var(--shadow-button);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    min-width: 160px;
+}
+
+.ongoing-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-button-hover);
+}
+
+.ongoing-pill:active {
+    transform: scale(0.98);
+}
+
+.ongoing-pill .pill-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+.ongoing-pill .pill-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .bell {

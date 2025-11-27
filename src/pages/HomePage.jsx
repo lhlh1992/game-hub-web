@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useOngoingGame } from '../hooks/useOngoingGame.js'
 
 const heroSlides = [
   {
@@ -139,6 +141,10 @@ const gameSections = [
 ]
 
 const HomePage = () => {
+  const navigate = useNavigate()
+  const { data: ongoingGame } = useOngoingGame()
+  const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
+
   useEffect(() => {
     document.body.classList.add('home')
     return () => document.body.classList.remove('home')
@@ -199,6 +205,30 @@ const HomePage = () => {
             </div>
           </div>
 
+          {ongoing ? (
+            <section className="ongoing-game-highlight" data-ongoing-card="">
+              <div className="ongoing-card-meta">
+                <p className="eyebrow">你正在进行的游戏</p>
+                <h3>{ongoing.title || '当前对局'}</h3>
+                <p className="description">
+                  {ongoing.gameType === 'gomoku' ? '五子棋' : '对局'} · 点击继续即可回到房间
+                </p>
+              </div>
+              <div className="ongoing-card-actions">
+                <button
+                  className="continue-btn"
+                  type="button"
+                  onClick={() => navigate(`/game/${ongoing.roomId}`)}
+                >
+                  继续游戏
+                </button>
+                <button className="ghost-btn" type="button" onClick={() => navigate('/lobby')}>
+                  切换模式
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           <section className="game-sections">
             {gameSections.map((section) => (
               <div key={section.title} className="game-section">
@@ -213,7 +243,11 @@ const HomePage = () => {
                 </div>
                 <div className="game-row">
                   {section.cards.map((card) => (
-                    <GameCard key={card.title} {...card} />
+                    <GameCard
+                      key={card.title}
+                      {...card}
+                      onStart={card.title === '五子棋' ? () => navigate('/lobby') : undefined}
+                    />
                   ))}
                 </div>
               </div>
@@ -261,7 +295,18 @@ const HeroSlide = ({ slide, isActive, index }) => {
   )
 }
 
-const GameCard = ({ title, description, badge, badgeClass, image, thumbClass, thumbText, cta, variant }) => {
+const GameCard = ({
+  title,
+  description,
+  badge,
+  badgeClass,
+  image,
+  thumbClass,
+  thumbText,
+  cta,
+  variant,
+  onStart,
+}) => {
   return (
     <article className={`game-card ${badgeClass ? `card-${badgeClass}` : ''}`}>
       <div className={`game-thumb ${thumbClass || ''}`}>
@@ -274,7 +319,7 @@ const GameCard = ({ title, description, badge, badgeClass, image, thumbClass, th
           <p>{description}</p>
         </div>
         <div className="game-actions">
-          <button className={variant === 'primary' ? 'play-btn' : 'play-outline'} type="button">
+          <button className={variant === 'primary' ? 'play-btn' : 'play-outline'} type="button" onClick={onStart}>
             {cta}
           </button>
           {variant === 'primary' && (

@@ -49,5 +49,17 @@ export async function getMe() {
   }
 }
 
+/**
+ * 获取当前正在进行中的游戏
+ * @returns {Promise<{hasOngoing: boolean, gameType?: string, roomId?: string, title?: string}>}
+ */
+export async function getOngoingGame() {
+  try {
+    return await handleApiResponse(apiGet('/game-service/api/ongoing-game'))
+  } catch (error) {
+    throw new Error(`获取进行中对局失败: ${error.message}`)
+  }
+}
+
 
 

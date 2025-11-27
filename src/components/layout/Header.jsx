@@ -1,34 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
-
-const NAV_ITEMS = [
-  { label: '大厅', path: '/', dataNav: 'home' },
-  { label: '游戏', path: '/lobby', dataNav: 'lobby' },
-  { label: '我的', path: '/profile', dataNav: 'profile' },
-]
+import { useOngoingGame } from '../../hooks/useOngoingGame.js'
 
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 const BELL_ICON = '/images/bell.svg'
 
 const Header = () => {
-  const location = useLocation()
+  const navigate = useNavigate()
   const { user, isAuthenticated, isLoading, login, logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { data: ongoingGame } = useOngoingGame()
+  const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
 
   const displayName = useMemo(() => user?.nickname?.trim() || user?.username || '玩家', [user])
 
   const avatarUrl = useMemo(() => user?.avatarUrl?.trim() || DEFAULT_AVATAR, [user])
-
-  const activeNav = useMemo(() => {
-    if (location.pathname.startsWith('/lobby')) {
-      return 'lobby'
-    }
-    if (location.pathname.startsWith('/profile')) {
-      return 'profile'
-    }
-    return 'home'
-  }, [location.pathname])
 
   useEffect(() => {
     document.body.classList.toggle('profile-drawer-open', drawerOpen)
@@ -44,34 +31,31 @@ const Header = () => {
     logout()
   }
 
+  const handleContinueGame = () => {
+    if (!ongoing?.roomId) return
+    navigate(`/game/${ongoing.roomId}`)
+  }
+
   const handleLogin = () => {
     login()
   }
 
   return (
-    <div data-component="global-header" data-active={activeNav}>
+    <div data-component="global-header">
       <header className="gh-header">
         <div className="gh-header-inner">
-          <div className="logo">
+          <Link to="/" className="logo" aria-label="返回首页">
             <div className="logo-square" />
             <span>GameHub</span>
-          </div>
-
-          <nav className="gh-nav">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                data-nav={item.dataNav}
-                className={({ isActive }) => (isActive ? 'active' : undefined)}
-                end={item.path === '/'}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          </Link>
 
           <div className="header-tools">
+            {ongoing ? (
+              <button className="ongoing-pill" type="button" onClick={handleContinueGame}>
+                <span className="pill-label">继续对局</span>
+                <span className="pill-title">{ongoing.title || '返回游戏'}</span>
+              </button>
+            ) : null}
             <button className="bell" type="button" aria-label="通知">
               <img src={BELL_ICON} alt="通知" />
             </button>
