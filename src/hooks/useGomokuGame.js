@@ -436,8 +436,9 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       }
       if (snap.state) {
         updateGameState(snap.state)
-      } else if (snap.cells) {
-        const boardFromCells = buildBoardFromPayload(snap.cells)
+      } else {
+        const boardPayload = snap.cells || snap.board?.cells || snap.board?.grid || snap.board
+        const boardFromCells = buildBoardFromPayload(boardPayload)
         let resolvedWinner =
           normalizeWinnerPiece(
             snap.winner ??
