@@ -17,6 +17,126 @@ const EMPTY_BOARD = Array(BOARD_SIZE)
   .fill(null)
   .map(() => Array(BOARD_SIZE).fill(null))
 
+const WIN_DIRS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1],
+]
+
+const normalizeSide = (value) => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value === 'number') {
+    if (value === 0) return 'X'
+    if (value === 1) return 'O'
+  }
+  const text = String(value).trim()
+  if (!text || text === '.') {
+    return null
+  }
+  const upper = text.toUpperCase()
+  switch (upper) {
+    case 'X':
+    case 'BLACK':
+    case 'B':
+    case 'X_WIN':
+      return 'X'
+    case 'O':
+    case 'WHITE':
+    case 'W':
+    case 'O_WIN':
+      return 'O'
+    case '0':
+      return 'X'
+    case '1':
+      return 'O'
+    default:
+      return null
+  }
+}
+
+const normalizeCellValue = (value) => normalizeSide(value)
+
+const matchesPiece = (cell, piece) => {
+  if (!piece) return false
+  return normalizeSide(cell) === piece
+}
+
+const collectWinLineForPiece = (grid, piece) => {
+  if (!piece || !Array.isArray(grid) || !grid.length) {
+    return null
+  }
+  const size = grid.length
+  for (let x = 0; x < size; x += 1) {
+    for (let y = 0; y < size; y += 1) {
+      if (!matchesPiece(grid?.[x]?.[y], piece)) {
+        continue
+      }
+      for (let dirIdx = 0; dirIdx < WIN_DIRS.length; dirIdx += 1) {
+        const [dx, dy] = WIN_DIRS[dirIdx]
+        const prevX = x - dx
+        const prevY = y - dy
+        if (
+          prevX >= 0 &&
+          prevX < size &&
+          prevY >= 0 &&
+          prevY < size &&
+          matchesPiece(grid?.[prevX]?.[prevY], piece)
+        ) {
+          continue
+        }
+
+        const coords = []
+        let cx = x
+        let cy = y
+        while (cx >= 0 && cx < size && cy >= 0 && cy < size && matchesPiece(grid?.[cx]?.[cy], piece)) {
+          coords.push([cx, cy])
+          cx += dx
+          cy += dy
+        }
+        if (coords.length >= 5) {
+          const firstFive = coords.slice(0, 5)
+          const winSet = new Set(firstFive.map(([px, py]) => `${px},${py}`))
+          // 调试：检测到5连
+          console.log(`[collectWinLineForPiece] 检测到5连！棋子: ${piece}, 坐标: ${Array.from(winSet).join(', ')}, 方向: [${dx}, ${dy}]`)
+          return {
+            piece,
+            cells: winSet,
+          }
+        }
+      }
+    }
+  }
+  return null
+}
+
+const detectWinLineCells = (grid, winnerHint) => {
+  if (!Array.isArray(grid) || !grid.length) {
+    return null
+  }
+  const normalizedHint = normalizeSide(winnerHint)
+  const candidates = normalizedHint ? [normalizedHint, 'X', 'O'] : ['X', 'O']
+  const seen = new Set()
+  for (let i = 0; i < candidates.length; i += 1) {
+    const piece = candidates[i]
+    if (!piece || seen.has(piece)) {
+      continue
+    }
+    seen.add(piece)
+    const result = collectWinLineForPiece(grid, piece)
+    if (result) {
+      // 调试：detectWinLineCells 返回结果
+      console.log(`[detectWinLineCells] 检测到5连！棋子: ${result.piece}, 坐标数量: ${result.cells.size}, 坐标: ${Array.from(result.cells).join(', ')}`)
+      return result
+    }
+  }
+  return null
+}
+
+const normalizeWinnerPiece = (value) => normalizeSide(value)
+
 export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [board, setBoard] = useState(EMPTY_BOARD)
   const [lastMove, setLastMove] = useState(null)
@@ -33,6 +153,11 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
 
   const roomRef = useRef(roomId)
   const seatKeyRef = useRef(null)
+  const boardRef = useRef(EMPTY_BOARD)
+
+  useEffect(() => {
+    boardRef.current = board
+  }, [board])
 
   // 更新 roomId ref
   useEffect(() => {
@@ -165,8 +290,9 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       for (let x = 0; x < BOARD_SIZE; x += 1) {
         for (let y = 0; y < BOARD_SIZE; y += 1) {
           const value = grid?.[x]?.[y]
-          if (value && value !== '.') {
-            next[x][y] = String(value).toUpperCase()
+          const normalized = normalizeCellValue(value)
+          if (normalized) {
+            next[x][y] = normalized
           }
         }
       }
@@ -178,8 +304,9 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         for (let j = 0; j < BOARD_SIZE; j += 1) {
           const idx = i * BOARD_SIZE + j
           const char = grid[idx]
-          if (char && char !== '.') {
-            next[i][j] = char.toUpperCase()
+          const normalized = normalizeCellValue(char)
+          if (normalized) {
+            next[i][j] = normalized
           }
         }
       }
@@ -190,62 +317,99 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   }, [])
 
   // 更新游戏状态
-  const updateGameState = useCallback((state) => {
-    if (!state) return
+  const updateGameState = useCallback(
+    (state) => {
+      if (!state) return
 
-    // 更新棋盘
-    if (state.board) {
-      const boardFromState = buildBoardFromPayload(state.board)
-      if (boardFromState) {
-        setBoard(boardFromState)
-      }
-    }
+      let nextBoard = null
 
-    // 更新最后一步
-    if (state.lastMove) {
-      setLastMove({ x: state.lastMove[0], y: state.lastMove[1] })
-    } else {
-      setLastMove(null)
-    }
-
-    // 更新获胜线
-    if (state.winLines && Array.isArray(state.winLines)) {
-      const winSet = new Set()
-      state.winLines.forEach((line) => {
-        if (Array.isArray(line)) {
-          line.forEach(([x, y]) => {
-            winSet.add(`${x},${y}`)
-          })
+      // 更新棋盘
+      if (state.board) {
+        const boardFromState = buildBoardFromPayload(state.board)
+        if (boardFromState) {
+          nextBoard = boardFromState
+          boardRef.current = boardFromState
+          setBoard(boardFromState)
         }
-      })
-      setWinLines(winSet)
-    } else {
-      setWinLines(new Set())
-    }
+      }
 
-    // 更新当前回合
-    if (state.current) {
-      setSideToMove(state.current.toUpperCase())
-    }
+      const derivedBoard = nextBoard || boardRef.current
+      const stateWinnerRaw =
+        state.winner ??
+        (state.outcome === 'X_WIN'
+          ? 'X'
+          : state.outcome === 'O_WIN'
+            ? 'O'
+            : null)
+      let normalizedWinner = normalizeWinnerPiece(stateWinnerRaw)
 
-    // 更新游戏状态
-    if (state.over !== undefined) {
-      setGameStatus({
-        over: Boolean(state.over),
-        winner: state.winner || null,
-        label: state.over ? 'Finished' : 'Playing',
-      })
-    }
+      // 更新最后一步
+      if (state.lastMove) {
+        setLastMove({ x: state.lastMove[0], y: state.lastMove[1] })
+      } else {
+        setLastMove(null)
+      }
 
-    // 更新回合信息
-    if (state.index !== undefined) {
-      setRoundInfo((prev) => ({
-        ...prev,
-        round: state.index || 1,
-        current: state.current || 'X',
-      }))
-    }
-  }, [buildBoardFromPayload])
+      // 更新获胜线
+      if (state.winLines && Array.isArray(state.winLines)) {
+        const winSet = new Set()
+        state.winLines.forEach((line) => {
+          if (Array.isArray(line)) {
+            line.forEach(([x, y]) => {
+              winSet.add(`${x},${y}`)
+            })
+          }
+        })
+        setWinLines(winSet)
+        if (!normalizedWinner && derivedBoard) {
+          const inferred = collectWinLineForPiece(derivedBoard, 'X') || collectWinLineForPiece(derivedBoard, 'O')
+          if (inferred) {
+            normalizedWinner = inferred.piece
+          }
+        }
+      } else if ((state.over || normalizedWinner) && derivedBoard) {
+        // 调试：调用检测前
+        console.log(`[updateGameState] 准备检测5连, state.over: ${state.over}, normalizedWinner: ${normalizedWinner}, 棋盘大小: ${derivedBoard.length}x${derivedBoard[0]?.length}`)
+        const detected = detectWinLineCells(derivedBoard, normalizedWinner)
+        if (detected) {
+          console.log(`[updateGameState] 检测到5连，设置winLines`)
+          setWinLines(detected.cells)
+          if (!normalizedWinner) {
+            normalizedWinner = detected.piece
+          }
+        } else {
+          console.log(`[updateGameState] 未检测到5连`)
+          setWinLines(new Set())
+        }
+      } else {
+        setWinLines(new Set())
+      }
+
+      // 更新当前回合
+      if (state.current) {
+        setSideToMove(state.current.toUpperCase())
+      }
+
+      // 更新游戏状态
+      if (state.over !== undefined) {
+        setGameStatus({
+          over: Boolean(state.over),
+          winner: normalizedWinner ?? state.winner ?? null,
+          label: state.over ? 'Finished' : 'Playing',
+        })
+      }
+
+      // 更新回合信息
+      if (state.index !== undefined) {
+        setRoundInfo((prev) => ({
+          ...prev,
+          round: state.index || 1,
+          current: state.current || 'X',
+        }))
+      }
+    },
+    [buildBoardFromPayload],
+  )
 
   // 更新系列信息（多盘比分）
   const updateSeriesInfo = useCallback((series) => {
@@ -274,8 +438,50 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         updateGameState(snap.state)
       } else if (snap.cells) {
         const boardFromCells = buildBoardFromPayload(snap.cells)
+        let resolvedWinner =
+          normalizeWinnerPiece(
+            snap.winner ??
+              (snap.outcome === 'X_WIN'
+                ? 'X'
+                : snap.outcome === 'O_WIN'
+                  ? 'O'
+                  : null),
+          ) || null
+
         if (boardFromCells) {
+          boardRef.current = boardFromCells
           setBoard(boardFromCells)
+          if (snap.winLines && Array.isArray(snap.winLines)) {
+            const snapSet = new Set()
+            snap.winLines.forEach((line) => {
+              if (Array.isArray(line)) {
+                line.forEach(([x, y]) => snapSet.add(`${x},${y}`))
+              }
+            })
+            setWinLines(snapSet)
+            if (!resolvedWinner) {
+              const inferred = collectWinLineForPiece(boardFromCells, 'X') || collectWinLineForPiece(boardFromCells, 'O')
+              if (inferred) {
+                resolvedWinner = inferred.piece
+              }
+            }
+          } else {
+            // 调试：handleFullSync 调用检测前
+            console.log(`[handleFullSync] 准备检测5连, resolvedWinner: ${resolvedWinner}, 棋盘大小: ${boardFromCells.length}x${boardFromCells[0]?.length}`)
+            const detected = detectWinLineCells(boardFromCells, resolvedWinner)
+            if (detected) {
+              console.log(`[handleFullSync] 检测到5连，设置winLines`)
+              setWinLines(detected.cells)
+              if (!resolvedWinner) {
+                resolvedWinner = detected.piece
+              }
+            } else {
+              console.log(`[handleFullSync] 未检测到5连`)
+              setWinLines(new Set())
+            }
+          }
+        } else {
+          setWinLines(new Set())
         }
         if (snap.sideToMove) {
           setSideToMove(String(snap.sideToMove).toUpperCase())
@@ -292,6 +498,14 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
             white: snap.scoreO ?? scoreInfo.white,
             draws: scoreInfo.draws,
           })
+        }
+        if (snap.outcome || snap.winner || snap.over !== undefined) {
+          setGameStatus((prev) => ({
+            ...prev,
+            over: Boolean(snap.over ?? snap.outcome),
+            winner: resolvedWinner ?? prev.winner,
+            label: snap.over || snap.outcome ? 'Finished' : prev.label,
+          }))
         }
       }
       if (snap.series) {

@@ -1407,6 +1407,24 @@
         0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
+/* 五连胜利连线 - 完全按照老版本实现 */
+.win-line-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 15;
+}
+
+.win-line-overlay line {
+    stroke: #FF0000;
+    stroke-width: 4;
+    stroke-linecap: round;
+    opacity: 0.9;
+}
+
 /* 棋盘左右反射光 */
 .board-reflection-left,
 .board-reflection-right {

@@ -580,19 +580,151 @@ const MessageToast = ({ info, onClose }) => {
   )
 }
 
+const WIN_DIRS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1],
+]
+
+const normalizeCellValue = (value) => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  const text = String(value).trim()
+  if (!text || text === '.') {
+    return null
+  }
+  const upper = text.toUpperCase()
+  if (upper === 'X' || upper === 'BLACK' || upper === 'B' || upper === '0') {
+    return 'X'
+  }
+  if (upper === 'O' || upper === 'WHITE' || upper === 'W' || upper === '1') {
+    return 'O'
+  }
+  return null
+}
+
+const detectWinCellsFromGrid = (grid) => {
+  if (!Array.isArray(grid) || !grid.length) {
+    return null
+  }
+  const size = grid.length
+  for (let x = 0; x < size; x += 1) {
+    for (let y = 0; y < size; y += 1) {
+      const piece = normalizeCellValue(grid?.[x]?.[y])
+      if (!piece) continue
+      for (let i = 0; i < WIN_DIRS.length; i += 1) {
+        const [dx, dy] = WIN_DIRS[i]
+        const prevX = x - dx
+        const prevY = y - dy
+        if (
+          prevX >= 0 &&
+          prevX < size &&
+          prevY >= 0 &&
+          prevY < size &&
+          normalizeCellValue(grid?.[prevX]?.[prevY]) === piece
+        ) {
+          continue
+        }
+        const coords = []
+        let cx = x
+        let cy = y
+        while (
+          cx >= 0 &&
+          cx < size &&
+          cy >= 0 &&
+          cy < size &&
+          normalizeCellValue(grid?.[cx]?.[cy]) === piece
+        ) {
+          coords.push([cx, cy])
+          cx += dx
+          cy += dy
+        }
+        if (coords.length >= 5) {
+          const result = coords.slice(0, 5)
+          // 调试：GameRoomPage 检测到5连
+          console.log(`[detectWinCellsFromGrid] 检测到5连！棋子: ${piece}, 坐标: ${result.map(([x, y]) => `${x},${y}`).join(', ')}, 方向: [${dx}, ${dy}]`)
+          return result
+        }
+      }
+    }
+  }
+  return null
+}
+
 const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
+  const effectiveWinSet = useMemo(() => {
+    if (winLines && winLines.size >= 5) {
+      console.log(`[effectiveWinSet] 使用 winLines，大小: ${winLines.size}`)
+      return winLines
+    }
+    console.log(`[effectiveWinSet] winLines 为空或不足5个，开始本地检测, winLines.size: ${winLines?.size || 0}`)
+    const detected = detectWinCellsFromGrid(grid)
+    if (!detected) {
+      console.log(`[effectiveWinSet] 本地检测未找到5连`)
+      return null
+    }
+    const result = new Set(detected.map(([x, y]) => `${x},${y}`))
+    console.log(`[effectiveWinSet] 本地检测到5连，坐标: ${Array.from(result).join(', ')}`)
+    return result
+  }, [grid, winLines])
+
+  const winningLinePoints = useMemo(() => {
+    if (!effectiveWinSet || effectiveWinSet.size < 2) {
+      console.log(`[winningLinePoints] effectiveWinSet 为空或不足2个点, size: ${effectiveWinSet?.size || 0}`)
+      return null
+    }
+    console.log(`[winningLinePoints] 开始计算连线，坐标数量: ${effectiveWinSet.size}`)
+    const coords = Array.from(effectiveWinSet)
+      .map((key) => key.split(',').map(Number))
+      .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
+      .map(([x, y]) => ({ x, y }))
+
+    if (coords.length < 2) {
+      return null
+    }
+
+    const sameRow = coords.every((pt) => pt.x === coords[0].x)
+    const sameCol = coords.every((pt) => pt.y === coords[0].y)
+    const sameDiagDown = coords.every((pt) => pt.x - pt.y === coords[0].x - coords[0].y)
+    const sameDiagUp = coords.every((pt) => pt.x + pt.y === coords[0].x + coords[0].y)
+
+    let sorted = coords
+    if (sameRow) {
+      sorted = [...coords].sort((a, b) => a.y - b.y)
+    } else if (sameCol) {
+      sorted = [...coords].sort((a, b) => a.x - b.x)
+    } else if (sameDiagDown || sameDiagUp) {
+      sorted = [...coords].sort((a, b) => a.x - b.x)
+    } else {
+      sorted = [...coords].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x))
+    }
+
+    const toBoardPoint = ({ x, y }) => ({
+      cx: BOARD_GRID_ORIGIN + y * CELL_SIZE,
+      cy: BOARD_GRID_ORIGIN + x * CELL_SIZE,
+    })
+
+    const result = {
+      start: toBoardPoint(sorted[0]),
+      end: toBoardPoint(sorted[sorted.length - 1]),
+    }
+    console.log(`[winningLinePoints] 计算完成, 起点: (${result.start.cx}, ${result.start.cy}), 终点: (${result.end.cx}, ${result.end.cy})`)
+    return result
+  }, [effectiveWinSet])
+
   const cells = useMemo(() => {
     const list = []
     for (let x = 0; x < BOARD_SIZE; x += 1) {
       for (let y = 0; y < BOARD_SIZE; y += 1) {
         const value = grid?.[x]?.[y]
         const classList = ['cell']
-        
-        // 先计算这些变量，再使用
+
         const isLast = lastMove && lastMove.x === x && lastMove.y === y
         const winKey = `${x},${y}`
-        const isWinning = winLines?.has?.(winKey)
-        
+        const isWinning = effectiveWinSet?.has?.(winKey)
+
         if (value === 'X' || value === 'x') {
           classList.push('X')
         } else if (value === 'O' || value === 'o') {
@@ -623,7 +755,7 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
       }
     }
     return list
-  }, [grid, lastMove, winLines, onCellClick])
+  }, [grid, lastMove, effectiveWinSet, onCellClick])
 
   const starNodes = useMemo(() => {
     return STAR_POINTS.map((star) => {
@@ -687,7 +819,42 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
       className="board-surface"
       style={{ width: `${BOARD_DIMENSION}px`, height: `${BOARD_DIMENSION}px` }}
     >
-      <div id="board" style={{ width: '100%', height: '100%' }}>
+      <div id="board" style={{ width: '100%', height: '100%', position: 'relative' }}>
+        {winningLinePoints ? (
+          (() => {
+            console.log(`[渲染SVG] 渲染连线, 起点: (${winningLinePoints.start.cx}, ${winningLinePoints.start.cy}), 终点: (${winningLinePoints.end.cx}, ${winningLinePoints.end.cy})`)
+            return (
+              <svg
+                className="win-line-overlay"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 15,
+                }}
+              >
+                <line
+                  x1={winningLinePoints.start.cx}
+                  y1={winningLinePoints.start.cy}
+                  x2={winningLinePoints.end.cx}
+                  y2={winningLinePoints.end.cy}
+                  stroke="#FF0000"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  opacity="0.9"
+                />
+              </svg>
+            )
+          })()
+        ) : (
+          (() => {
+            console.log(`[渲染SVG] winningLinePoints 为空，不渲染SVG`)
+            return null
+          })()
+        )}
         {cells}
         {starNodes}
         {coordY}
