@@ -32,6 +32,7 @@
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
+    padding-top: 80px; /* 为固定Header留出空间，避免遮挡对局数据栏 */
 }
 
 /* 背景光斑效果 */
@@ -100,6 +101,8 @@
     flex-wrap: wrap;
     padding: 16px 24px;
     margin-bottom: 8px;
+    position: relative;
+    z-index: 10; /* 确保在对局内容上方 */
 }
 
 .status-capsule {
@@ -107,7 +110,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.85); /* 提高不透明度，确保可见 */
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.9);
     border-radius: 24px;
@@ -116,6 +119,8 @@
         0 1px 3px rgba(0, 0, 0, 0.04),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     transition: all 0.3s ease;
+    position: relative;
+    z-index: 1; /* 确保在背景上方 */
 }
 
 .status-capsule:hover {

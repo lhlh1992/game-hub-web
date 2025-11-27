@@ -124,7 +124,9 @@ const GameRoomPage = () => {
 
   useEffect(() => {
     document.title = '五子棋 - 游戏进行中'
-  }, [])
+    // 页面加载或roomId变化时滚动到顶部
+    window.scrollTo(0, 0)
+  }, [roomId])
 
   useEffect(() => {
     if (systemLogs?.length) {
