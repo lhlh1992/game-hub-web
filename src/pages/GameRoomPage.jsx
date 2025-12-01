@@ -4,7 +4,7 @@ import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
-import { leaveRoom } from '../services/api/gameApi.js'
+import { getOngoingGame, leaveRoom } from '../services/api/gameApi.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 42
@@ -139,6 +139,36 @@ const GameRoomPage = () => {
     }
     refreshOngoing?.()
   }, [refreshOngoing, roomId])
+
+  useEffect(() => {
+    if (!roomId) {
+      navigate('/lobby', { replace: true })
+      return
+    }
+    let cancelled = false
+    const validateAccess = async () => {
+      try {
+        const latest = await getOngoingGame()
+        if (cancelled) {
+          return
+        }
+        if (!latest?.hasOngoing || latest.roomId !== roomId) {
+          window.alert('当前没有正在进行的对局，已返回大厅')
+          navigate('/lobby', { replace: true })
+        } else {
+          await refreshOngoing?.()
+        }
+      } catch (error) {
+        console.error('验证对局状态失败', error)
+        window.alert('无法验证当前对局状态，已返回大厅')
+        navigate('/lobby', { replace: true })
+      }
+    }
+    validateAccess()
+    return () => {
+      cancelled = true
+    }
+  }, [navigate, refreshOngoing, roomId])
 
   useEffect(() => {
     if (systemLogs?.length) {
