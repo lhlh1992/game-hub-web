@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useOngoingGame } from '../../hooks/useOngoingGame.js'
+import { leaveRoom } from '../../services/api/gameApi.js'
 
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 const BELL_ICON = '/images/bell.svg'
@@ -11,7 +12,7 @@ const Header = () => {
   const { user, isAuthenticated, isLoading, login, logout } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [ending, setEnding] = useState(false)
-  const { data: ongoingGame, end: endOngoing } = useOngoingGame()
+  const { data: ongoingGame, refresh: refreshOngoing } = useOngoingGame()
   const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
 
   const displayName = useMemo(() => user?.nickname?.trim() || user?.username || '玩家', [user])
@@ -47,7 +48,8 @@ const Header = () => {
     if (!confirmed) return
     setEnding(true)
     try {
-      await endOngoing?.(ongoing.roomId)
+      await leaveRoom(ongoing.roomId)
+      await refreshOngoing?.()
       navigate('/lobby')
     } catch (error) {
       console.error('结束对局失败', error)

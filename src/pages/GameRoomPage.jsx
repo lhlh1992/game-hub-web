@@ -4,6 +4,7 @@ import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
+import { leaveRoom } from '../services/api/gameApi.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 42
@@ -79,7 +80,7 @@ const GameRoomPage = () => {
   const { roomId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { end: endOngoing } = useOngoingGame()
+  const { refresh: refreshOngoing } = useOngoingGame()
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -226,7 +227,8 @@ const GameRoomPage = () => {
     }
     setLeaving(true)
     try {
-      await endOngoing?.(roomId)
+      await leaveRoom(roomId)
+      await refreshOngoing?.()
     } catch (error) {
       console.error('离开房间失败', error)
       window.alert('离开房间失败，请稍后再试')
@@ -234,7 +236,7 @@ const GameRoomPage = () => {
       setLeaving(false)
       navigate('/lobby')
     }
-  }, [endOngoing, leaving, navigate, roomId])
+  }, [leaving, navigate, refreshOngoing, roomId])
 
   const closeVictoryModal = useCallback(() => {
     setVictoryInfo((prev) => ({ ...prev, show: false }))

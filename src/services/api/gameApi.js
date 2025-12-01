@@ -73,5 +73,17 @@ export async function endOngoingGame(roomId) {
   }
 }
 
+/**
+ * 主动离开房间
+ * @param {string} roomId
+ */
+export async function leaveRoom(roomId) {
+  try {
+    return await handleApiResponse(post(`/game-service/api/gomoku/rooms/${roomId}/leave`, {}))
+  } catch (error) {
+    throw new Error(`退出房间失败: ${error.message}`)
+  }
+}
+
 
 
