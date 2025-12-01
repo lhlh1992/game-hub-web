@@ -134,6 +134,13 @@ const GameRoomPage = () => {
   }, [roomId])
 
   useEffect(() => {
+    if (!roomId) {
+      return
+    }
+    refreshOngoing?.()
+  }, [refreshOngoing, roomId])
+
+  useEffect(() => {
     if (systemLogs?.length) {
       setSystemMessages((prev) => [...prev, ...systemLogs])
     }
