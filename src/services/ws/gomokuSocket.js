@@ -230,6 +230,22 @@ export function sendRestart(roomId, seatKey = null) {
   })
 }
 
+export function sendReady(roomId, seatKey = null) {
+  const client = getClient()
+  client.publish({
+    destination: '/app/gomoku.ready',
+    body: JSON.stringify({ roomId, seatKey }),
+  })
+}
+
+export function sendStartGame(roomId, seatKey = null) {
+  const client = getClient()
+  client.publish({
+    destination: '/app/gomoku.start',
+    body: JSON.stringify({ roomId, seatKey }),
+  })
+}
+
 export function disconnectWebSocket() {
   subscriptions.forEach((sub) => sub.unsubscribe())
   subscriptions.clear()

@@ -81,6 +81,8 @@ const GameRoomPage = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { refresh: refreshOngoing } = useOngoingGame()
+  // 当前用户唯一标识（用于在 readyStatus 中取准备状态）
+  const currentUserId = user?.keycloakUserId || user?.id || user?.username || 'self'
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -109,9 +111,13 @@ const GameRoomPage = () => {
     systemLogs,
     chatMessages: liveChatMessages,
     wsConnected,
+    readyStatus,
+    roomPhase,
     placeStone,
     requestResign,
     requestRestart,
+    toggleReady,
+    requestStartGame,
   } = useGomokuGame({ roomId, onForbidden: showForbiddenTip, onMessage: showMessage })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
@@ -255,6 +261,36 @@ const GameRoomPage = () => {
     requestRestart()
   }, [requestRestart])
 
+  // 判断是否可以开始游戏
+  const canStartGame = useCallback(() => {
+    if (!readyStatus || Object.keys(readyStatus).length === 0) {
+      return false
+    }
+    // PVE模式：只需要房主准备即可（AI默认已准备）
+    // PVP模式：需要所有玩家都准备
+    // 这里简化处理，检查所有在readyStatus中的玩家是否都已准备
+    const allReady = Object.values(readyStatus).every((ready) => ready === true)
+    return allReady && Object.keys(readyStatus).length > 0
+  }, [readyStatus])
+
+  // 计算自己与对手的准备状态，用于在左右两侧展示
+  const selfReady = !!readyStatus?.[currentUserId]
+  const { opponentReady, isPve } = useMemo(() => {
+    if (!readyStatus) {
+      return { opponentReady: false, isPve: false }
+    }
+    const userIds = Object.keys(readyStatus)
+    if (userIds.length <= 1) {
+      // 只有自己一个玩家，推断为 PVE，AI 默认已准备
+      return { opponentReady: true, isPve: true }
+    }
+    const opponentId = userIds.find((id) => id !== currentUserId)
+    return {
+      opponentReady: opponentId ? !!readyStatus[opponentId] : false,
+      isPve: false,
+    }
+  }, [readyStatus, currentUserId])
+
   const handleLeaveRoom = useCallback(async () => {
     if (leaving) {
       return
@@ -365,7 +401,15 @@ const GameRoomPage = () => {
         <GameStatusBar status={statusBar} capsules={statusCapsules} onForbiddenTip={showForbiddenTip} />
 
         <div className="player-panel player-left">
-          <PlayerCard idPrefix="self" player={selfPlayer} wsConnected={wsConnected} />
+          <PlayerCard
+            idPrefix="self"
+            player={selfPlayer}
+            wsConnected={wsConnected}
+            readyLabel={selfReady ? '已准备' : '未准备'}
+            readyAccent={selfReady}
+            readyButtonLabel={roomPhase !== 'PLAYING' ? (selfReady ? '取消准备' : '准备') : null}
+            onToggleReady={roomPhase !== 'PLAYING' ? toggleReady : null}
+          />
           <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
           <div className="leave-room-panel">
             <span className="leave-arrow" aria-hidden="true">
@@ -378,23 +422,48 @@ const GameRoomPage = () => {
         </div>
 
         <div className="game-center-panel">
+          {/* 开始游戏：居中放在棋盘上方，始终显示，根据状态禁用 */}
+          <div
+            className="start-game-bar"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '12px',
+            }}
+          >
+            <button
+              type="button"
+              className="btn-action btn-start"
+              onClick={requestStartGame}
+              disabled={!wsConnected || roomPhase !== 'WAITING' || !canStartGame()}
+            >
+              开始游戏
+            </button>
+          </div>
+
           <div className="board-container">
             <GomokuBoard grid={board} lastMove={lastMove} winLines={winLines} onCellClick={placeStone} />
             <div className="board-reflection-left" />
             <div className="board-reflection-right" />
           </div>
           <div className="game-actions">
-            <button type="button" className="btn-action btn-resign" id="btnResign" onClick={handleResign}>
-              Resign
-            </button>
-            <button type="button" className="btn-action btn-restart" id="btnRestart" onClick={handleRestart}>
-              New Game
-            </button>
+            {/* 对局中的操作按钮区域：仅在 PLAYING 时显示认输按钮；不再提供本地“再来一局”按钮 */}
+            {roomPhase === 'PLAYING' && (
+              <button type="button" className="btn-action btn-resign" id="btnResign" onClick={handleResign}>
+                Resign
+              </button>
+            )}
           </div>
         </div>
 
         <div className="player-panel player-right">
-          <PlayerCard idPrefix="opponent" player={opponentPlayer} wsConnected={wsConnected} />
+          <PlayerCard
+            idPrefix="opponent"
+            player={opponentPlayer}
+            wsConnected={wsConnected}
+            readyLabel={`${isPve ? 'AI' : '对手'} ${opponentReady ? '已准备' : '未准备'}`}
+            readyAccent={opponentReady}
+          />
           <SystemInfoPanel messages={systemMessages} />
         </div>
       </main>
@@ -475,7 +544,15 @@ const StatusCapsule = ({
   )
 }
 
-const PlayerCard = ({ idPrefix, player, wsConnected = false }) => {
+const PlayerCard = ({
+  idPrefix,
+  player,
+  wsConnected = false,
+  readyLabel,
+  readyAccent = false,
+  readyButtonLabel,
+  onToggleReady,
+}) => {
   const progress = Math.max(0, Math.min(1, player.countdownProgress ?? 0))
   const dashArray = 283
   const dashOffset = dashArray * (1 - progress)
@@ -531,6 +608,45 @@ const PlayerCard = ({ idPrefix, player, wsConnected = false }) => {
           Winner
         </div>
       </div>
+      {(readyLabel || readyButtonLabel) && (
+        <div
+          className="player-ready-row"
+          style={{
+            marginTop: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          {readyLabel && (
+            <span
+              className={`ready-badge ${readyAccent ? 'on' : 'off'}`}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                background: readyAccent ? 'rgba(16,185,129,0.08)' : 'rgba(148,163,184,0.12)',
+                color: readyAccent ? '#059669' : '#64748b',
+                border: `1px solid ${readyAccent ? 'rgba(16,185,129,0.4)' : 'rgba(148,163,184,0.5)'}`,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {readyLabel}
+            </span>
+          )}
+          {readyButtonLabel && onToggleReady && (
+            <button
+              type="button"
+              className="btn-action btn-ready"
+              onClick={onToggleReady}
+              style={{ paddingInline: '14px', fontSize: '12px' }}
+            >
+              {readyButtonLabel}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

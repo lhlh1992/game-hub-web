@@ -8,6 +8,8 @@ import {
   sendResign,
   sendRestart,
   sendResume,
+  sendReady,
+  sendStartGame,
   disconnectWebSocket,
   isConnected,
 } from '../services/ws/gomokuSocket.js'
@@ -150,6 +152,9 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [systemLogs, setSystemLogs] = useState([])
   const [chatMessages, setChatMessages] = useState([])
   const [wsConnected, setWsConnected] = useState(false)
+  const [readyStatus, setReadyStatus] = useState({}) // Map<userId, ready>
+  const [roomPhase, setRoomPhase] = useState('WAITING') // WAITING, PLAYING, ENDED
+  const [isOwner, setIsOwner] = useState(false) // 是否是房主
 
   const roomRef = useRef(roomId)
   const seatKeyRef = useRef(null)
@@ -273,6 +278,16 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
           onMessage?.(errorMsg, 'error')
         }
       }
+    } else if (evt.type === 'READY_STATUS') {
+      // 准备状态更新
+      const status = evt.payload || {}
+      setReadyStatus(status)
+    } else if (evt.type === 'ROOM_STATUS') {
+      // 房间状态更新
+      const status = evt.payload || {}
+      if (status.phase) {
+        setRoomPhase(status.phase)
+      }
     }
   }, [onForbidden, onMessage])
 
@@ -392,11 +407,16 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
 
       // 更新游戏状态
       if (state.over !== undefined) {
+        const isOver = Boolean(state.over)
         setGameStatus({
-          over: Boolean(state.over),
+          over: isOver,
           winner: normalizedWinner ?? state.winner ?? null,
-          label: state.over ? 'Finished' : 'Playing',
+          label: isOver ? 'Finished' : 'Playing',
         })
+        // 对局结束后，前端应立即清空倒计时显示
+        if (isOver) {
+          setCountdown(null)
+        }
       }
 
       // 更新回合信息
@@ -509,8 +529,11 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
           }))
         }
       }
+      // 系列信息：兼容 STATE 广播中的 series 和 Resume.FullSync 中的 seriesView
       if (snap.series) {
         updateSeriesInfo(snap.series)
+      } else if (snap.seriesView) {
+        updateSeriesInfo(snap.seriesView)
       }
       if (snap.seatKey) {
         seatKeyRef.current = snap.seatKey
@@ -519,6 +542,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         setMySide(snap.side)
       } else if (snap.mySide) {
         setMySide(snap.mySide)
+      }
+      // 新增：从 FullSync 中恢复房间状态和准备状态，支持刷新重入
+      if (snap.phase) {
+        setRoomPhase(String(snap.phase).toUpperCase())
+      }
+      if (snap.readyStatus) {
+        setReadyStatus(snap.readyStatus)
       }
     },
     [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
@@ -533,6 +563,12 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       }
       if (!connected) {
         onMessage?.('网络连接已断开，无法落子。请刷新页面重新连接。', 'error')
+        return
+      }
+
+      // 在房间未开始（WAITING）时，前端直接禁止落子和显示棋子
+      if (roomPhase === 'WAITING') {
+        onMessage?.('请先双方准备，并由房主点击“开始游戏”后再落子。', 'error')
         return
       }
 
@@ -560,21 +596,14 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       if (roomRef.current) {
         try {
           sendPlace(roomRef.current, x, y, sideToMove, seatKeyRef.current)
-          // 乐观更新：立即更新本地棋盘（如果发送失败，服务器会同步正确状态）
-          setBoard((prev) => {
-            const newBoard = prev.map((row) => [...row])
-            newBoard[x][y] = sideToMove
-            return newBoard
-          })
-          setLastMove({ x, y })
-          setSideToMove((s) => (s === 'X' ? 'O' : 'X'))
+          // 不再在前端乐观落子，完全以服务端广播为准，避免未开始阶段出现“假落子”
         } catch (error) {
           console.error('发送落子指令失败', error)
           onMessage?.('落子失败，请检查网络连接后重试。', 'error')
         }
       }
     },
-    [board, sideToMove, mySide, gameStatus, wsConnected, onMessage],
+    [board, sideToMove, mySide, gameStatus, wsConnected, roomPhase, onMessage],
   )
 
   // 认输
@@ -611,6 +640,38 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     }
   }, [wsConnected, onMessage])
 
+  // 准备/取消准备
+  const toggleReady = useCallback(() => {
+    if (!wsConnected) {
+      onMessage?.('网络连接已断开，无法准备。请刷新页面重新连接。', 'error')
+      return
+    }
+    if (roomRef.current) {
+      try {
+        sendReady(roomRef.current, seatKeyRef.current)
+      } catch (error) {
+        console.error('发送准备指令失败', error)
+        onMessage?.('准备失败，请检查网络连接后重试。', 'error')
+      }
+    }
+  }, [wsConnected, onMessage])
+
+  // 开始游戏（仅房主）
+  const requestStartGame = useCallback(() => {
+    if (!wsConnected) {
+      onMessage?.('网络连接已断开，无法开始游戏。请刷新页面重新连接。', 'error')
+      return
+    }
+    if (roomRef.current) {
+      try {
+        sendStartGame(roomRef.current, seatKeyRef.current)
+      } catch (error) {
+        console.error('发送开始游戏指令失败', error)
+        onMessage?.('开始游戏失败，请检查网络连接后重试。', 'error')
+      }
+    }
+  }, [wsConnected, onMessage])
+
   return {
     board,
     lastMove,
@@ -624,8 +685,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     systemLogs,
     chatMessages,
     wsConnected,
+    readyStatus,
+    roomPhase,
+    isOwner,
     placeStone,
     requestResign,
     requestRestart,
+    toggleReady,
+    requestStartGame,
   }
 }
