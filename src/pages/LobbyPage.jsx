@@ -44,6 +44,55 @@ const LobbyPage = () => {
   const [enterModalOpen, setEnterModalOpen] = useState(false)
   const [roomId, setRoomId] = useState('')
 
+  // 临时：在线房间 mock 数据（后续可替换为真实接口）
+  const mockRooms = useMemo(
+    () => [
+      {
+        id: '8FA1D2BC',
+        owner: '刘辉',
+        avatar: '/images/avatar-default.png',
+        mode: 'PVP',
+        status: '等待中',
+        players: 1,
+        capacity: 2,
+        rule: '标准',
+      },
+      {
+        id: 'A7C30E11',
+        owner: '星耀玩家',
+        avatar: '/images/avatar-default.png',
+        mode: 'PVP',
+        status: '进行中',
+        players: 2,
+        capacity: 2,
+        rule: '禁手',
+      },
+      {
+        id: 'C1BB3D57',
+        owner: '阿七',
+        avatar: '/images/avatar-default.png',
+        mode: 'PVP',
+        status: '等待中',
+        players: 1,
+        capacity: 2,
+        rule: '标准',
+      },
+      {
+        id: 'D5F42E19',
+        owner: '老棋手',
+        avatar: '/images/avatar-default.png',
+        mode: 'PVP',
+        status: '进行中',
+        players: 2,
+        capacity: 2,
+        rule: '标准',
+      },
+    ],
+    [],
+  )
+  const [rooms, setRooms] = useState(mockRooms)
+  const [refreshingRooms, setRefreshingRooms] = useState(false)
+
   const [isMatchmaking, setIsMatchmaking] = useState(false)
   const matchmakingPollRef = useRef(null)
   const matchmakingSuccessRef = useRef(null)
@@ -180,46 +229,65 @@ const LobbyPage = () => {
           <p className="lobby-subtitle">选择你的游戏模式</p>
         </div>
 
-        <section className="game-modes">
-          <ModeCard icon="🤖" title="人机对战" description="与AI对手进行对战，提升你的棋艺" actionLabel="开始游戏" onAction={showPVEModal} />
+        <section className="mode-room-wrapper">
+          <div className="mode-left">
+            <div className="mode-modes-panel">
+              <div className="game-modes-left">
+                <ModeCard icon="🤖" title="人机对战" description="与AI对手进行对战，提升你的棋艺" actionLabel="开始游戏" onAction={showPVEModal} />
 
-          <ModeCard
-            icon="🏠"
-            title="创建房间"
-            description="创建私人房间，邀请好友一起对战"
-            actionLabel="创建房间"
-            onAction={showCreateModal}
-          >
-            <button type="button" className="link-btn" onClick={showEnterModal}>
-              输入房间 ID 进入
-            </button>
-          </ModeCard>
+                <ModeCard
+                  icon="🏠"
+                  title="创建房间"
+                  description="创建私人房间，邀请好友一起对战"
+                  actionLabel="创建房间"
+                  onAction={showCreateModal}
+                >
+                  <button type="button" className="link-btn" onClick={showEnterModal}>
+                    输入房间 ID 进入
+                  </button>
+                </ModeCard>
 
-          <ModeCard
-            icon="⚔️"
-            title="在线匹配"
-            description="快速匹配其他玩家，开始一场精彩对决"
-            actionLabel="开始匹配"
-            onAction={startMatchmaking}
-          actionDisabled={isMatchmaking}
-          hideActionButton={isMatchmaking}
-          footer={
-            isMatchmaking ? (
-              <div className="match-status">
-                <div className="match-loading">
-                  <span className="loading-dot" />
-                  <span className="loading-dot" />
-                  <span className="loading-dot" />
-                </div>
-                <p className="match-text">正在匹配中...</p>
-                <button type="button" className="mode-btn cancel" onClick={cancelMatchmaking}>
-                  取消匹配
-                </button>
+                <ModeCard
+                  icon="⚔️"
+                  title="在线匹配"
+                  description="快速匹配其他玩家，开始一场精彩对决"
+                  actionLabel="开始匹配"
+                  onAction={startMatchmaking}
+                  actionDisabled={isMatchmaking}
+                  hideActionButton={isMatchmaking}
+                  footer={
+                    isMatchmaking ? (
+                      <div className="match-status">
+                        <div className="match-loading">
+                          <span className="loading-dot" />
+                          <span className="loading-dot" />
+                          <span className="loading-dot" />
+                        </div>
+                        <p className="match-text">正在匹配中...</p>
+                        <button type="button" className="mode-btn cancel" onClick={cancelMatchmaking}>
+                          取消匹配
+                        </button>
+                      </div>
+                    ) : null
+                  }
+                />
               </div>
-            ) : null
-          }
-          >
-          </ModeCard>
+            </div>
+          </div>
+
+          <RoomListPanel
+            rooms={rooms}
+            refreshing={refreshingRooms}
+            onRefresh={() => {
+              if (refreshingRooms) return
+              setRefreshingRooms(true)
+              setTimeout(() => {
+                // 这里仅模拟刷新，未来可替换为真实接口
+                setRooms((prev) => [...prev])
+                setRefreshingRooms(false)
+              }, 800)
+            }}
+          />
         </section>
 
         <section className="rules-section">
@@ -367,6 +435,87 @@ const ModeCard = ({
       {footer}
       {children}
     </div>
+  )
+}
+
+const RoomListPanel = ({ rooms, refreshing, onRefresh }) => {
+  const isEmpty = !rooms || rooms.length === 0
+
+  const handleJoin = (room) => {
+    // 先保留占位行为，后续接入真实加入房间逻辑
+    window.alert(`加入房间 ${room.id}（示例，后续接入真实 API）`)
+  }
+
+  return (
+    <aside className="room-list-panel">
+      <div className="room-list-header">
+        <div>
+          <h2 className="room-list-title">在线房间列表</h2>
+          <p className="room-list-subtitle">加入其他玩家创建的五子棋房间，实时参与对局</p>
+        </div>
+        <div className="room-list-actions">
+          <button type="button" className="refresh-btn" onClick={onRefresh} disabled={refreshing}>
+            {refreshing ? '刷新中…' : '刷新列表'}
+          </button>
+          <span className="room-list-count">{rooms.length} Rooms</span>
+        </div>
+      </div>
+
+      <div className="room-list-body">
+        {isEmpty ? (
+          <div className="room-list-empty">
+            <div className="room-list-empty-icon">🏠</div>
+            <div className="room-list-empty-text">当前暂无公开房间</div>
+            <div className="room-list-empty-sub">点击左侧「创建房间」，成为第一个房主</div>
+          </div>
+        ) : (
+          rooms.map((room) => {
+            const full = room.players >= room.capacity
+            return (
+              <div key={room.id} className="room-card">
+                <div className="room-card-owner">
+                  <img className="room-avatar" src={room.avatar} alt={room.owner} />
+                  <div>
+                    <div className="owner-name">{room.owner}</div>
+                    <div className="room-id">ID: {room.id}</div>
+                  </div>
+                </div>
+                <div className="room-card-meta">
+                  <span className="room-tag">{room.mode}</span>
+                  <span className="room-rule">{room.rule}</span>
+                </div>
+                <div className="room-card-status">
+                  <span className="room-players">
+                    👥 {room.players}/{room.capacity}
+                  </span>
+                  <span className={`room-state ${room.status === '进行中' ? 'live' : 'waiting'}`}>{room.status}</span>
+                </div>
+                <div className="room-card-action">
+                  <button
+                    type="button"
+                    className="join-btn"
+                    onClick={() => handleJoin(room)}
+                    disabled={full && room.status !== '进行中'}
+                  >
+                    {full && room.status !== '进行中' ? '已满' : room.status === '进行中' ? '观战' : '加入'}
+                  </button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <div className="room-list-footer">
+        <button
+          type="button"
+          className="load-more-btn"
+          onClick={() => window.alert('Load more rooms（示例，后续接入分页/加载更多）')}
+        >
+          Load more
+        </button>
+      </div>
+    </aside>
   )
 }
 
