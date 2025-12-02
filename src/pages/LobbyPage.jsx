@@ -481,8 +481,9 @@ const RoomListPanel = ({ rooms, refreshing, onRefresh }) => {
                   </div>
                 </div>
                 <div className="room-card-meta">
-                  <span className="room-tag">{room.mode}</span>
-                  <span className="room-rule">{room.rule}</span>
+                  <span className="room-tag">
+                    {`PVP · ${room.rule === 'RENJU' || room.rule === '禁手' ? '禁手' : '标准'}`}
+                  </span>
                 </div>
                 <div className="room-card-status">
                   <span className="room-players">

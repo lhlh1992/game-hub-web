@@ -344,7 +344,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     padding: 10px 14px;
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.9);
@@ -393,6 +393,7 @@
     flex-direction: column;
     gap: 4px;
     font-size: 12px;
+    margin-right: 8px; /* 与右侧状态列拉开一点距离 */
 }
 
 .room-tag {
