@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/lobby.css'
-import { createRoom } from '../services/api/gameApi.js'
+import { createRoom, listGomokuRooms } from '../services/api/gameApi.js'
 
 const RULE_ITEMS = [
   {
@@ -44,54 +44,11 @@ const LobbyPage = () => {
   const [enterModalOpen, setEnterModalOpen] = useState(false)
   const [roomId, setRoomId] = useState('')
 
-  // 临时：在线房间 mock 数据（后续可替换为真实接口）
-  const mockRooms = useMemo(
-    () => [
-      {
-        id: '8FA1D2BC',
-        owner: '刘辉',
-        avatar: '/images/avatar-default.png',
-        mode: 'PVP',
-        status: '等待中',
-        players: 1,
-        capacity: 2,
-        rule: '标准',
-      },
-      {
-        id: 'A7C30E11',
-        owner: '星耀玩家',
-        avatar: '/images/avatar-default.png',
-        mode: 'PVP',
-        status: '进行中',
-        players: 2,
-        capacity: 2,
-        rule: '禁手',
-      },
-      {
-        id: 'C1BB3D57',
-        owner: '阿七',
-        avatar: '/images/avatar-default.png',
-        mode: 'PVP',
-        status: '等待中',
-        players: 1,
-        capacity: 2,
-        rule: '标准',
-      },
-      {
-        id: 'D5F42E19',
-        owner: '老棋手',
-        avatar: '/images/avatar-default.png',
-        mode: 'PVP',
-        status: '进行中',
-        players: 2,
-        capacity: 2,
-        rule: '标准',
-      },
-    ],
-    [],
-  )
-  const [rooms, setRooms] = useState(mockRooms)
+  const [rooms, setRooms] = useState([])
+  const [roomsCursor, setRoomsCursor] = useState(null)
+  const [roomsHasMore, setRoomsHasMore] = useState(true)
   const [refreshingRooms, setRefreshingRooms] = useState(false)
+  const [loadingMoreRooms, setLoadingMoreRooms] = useState(false)
 
   const [isMatchmaking, setIsMatchmaking] = useState(false)
   const matchmakingPollRef = useRef(null)
@@ -110,6 +67,25 @@ const LobbyPage = () => {
         matchmakingSuccessRef.current = null
       }
     }
+  }, [])
+
+  // 在线房间列表：首屏加载
+  useEffect(() => {
+    const loadInitialRooms = async () => {
+      try {
+        setRefreshingRooms(true)
+        const res = await listGomokuRooms({ limit: 4 })
+        const mapped = (res.items || []).map(mapRoomSummaryToView)
+        setRooms(mapped)
+        setRoomsCursor(res.nextCursor || null)
+        setRoomsHasMore(!!res.nextCursor)
+      } catch (e) {
+        console.error('加载房间列表失败', e)
+      } finally {
+        setRefreshingRooms(false)
+      }
+    }
+    loadInitialRooms()
   }, [])
 
   // 不再需要 ensureToken，createRoom 会自动从 Keycloak 获取 token
@@ -278,14 +254,37 @@ const LobbyPage = () => {
           <RoomListPanel
             rooms={rooms}
             refreshing={refreshingRooms}
-            onRefresh={() => {
+            loadingMore={loadingMoreRooms}
+            hasMore={roomsHasMore}
+            onRefresh={async () => {
               if (refreshingRooms) return
-              setRefreshingRooms(true)
-              setTimeout(() => {
-                // 这里仅模拟刷新，未来可替换为真实接口
-                setRooms((prev) => [...prev])
+              try {
+                setRefreshingRooms(true)
+                const res = await listGomokuRooms({ limit: 4 })
+                const mapped = (res.items || []).map(mapRoomSummaryToView)
+                setRooms(mapped)
+                setRoomsCursor(res.nextCursor || null)
+                setRoomsHasMore(!!res.nextCursor)
+              } catch (e) {
+                console.error('刷新房间列表失败', e)
+              } finally {
                 setRefreshingRooms(false)
-              }, 800)
+              }
+            }}
+            onLoadMore={async () => {
+              if (loadingMoreRooms || !roomsHasMore || !roomsCursor) return
+              try {
+                setLoadingMoreRooms(true)
+                const res = await listGomokuRooms({ cursor: roomsCursor, limit: 4 })
+                const mapped = (res.items || []).map(mapRoomSummaryToView)
+                setRooms((prev) => [...prev, ...mapped])
+                setRoomsCursor(res.nextCursor || null)
+                setRoomsHasMore(!!res.nextCursor)
+              } catch (e) {
+                console.error('加载更多房间失败', e)
+              } finally {
+                setLoadingMoreRooms(false)
+              }
             }}
           />
         </section>
@@ -438,7 +437,27 @@ const ModeCard = ({
   )
 }
 
-const RoomListPanel = ({ rooms, refreshing, onRefresh }) => {
+// 将后端 RoomSummary 映射为前端展示模型的辅助函数
+function mapRoomSummaryToView(summary) {
+  const phase = summary.phase || 'WAITING'
+  const deleted = summary.deleted
+  // 临时：人数/容量用简单规则占位，后续可接真实在线人数
+  const players = deleted ? 0 : phase === 'PLAYING' ? 2 : 1
+  const capacity = 2
+  const statusText = deleted ? '已关闭' : phase === 'PLAYING' ? '进行中' : '等待中'
+  return {
+    id: summary.roomId,
+    owner: summary.ownerUserId || '玩家',
+    avatar: '/images/avatar-default.png',
+    rule: summary.rule || 'STANDARD',
+    status: statusText,
+    players,
+    capacity,
+    deleted,
+  }
+}
+
+const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onLoadMore }) => {
   const isEmpty = !rooms || rooms.length === 0
 
   const handleJoin = (room) => {
@@ -496,9 +515,15 @@ const RoomListPanel = ({ rooms, refreshing, onRefresh }) => {
                     type="button"
                     className="join-btn"
                     onClick={() => handleJoin(room)}
-                    disabled={full && room.status !== '进行中'}
+                    disabled={room.deleted || (full && room.status !== '进行中')}
                   >
-                    {full && room.status !== '进行中' ? '已满' : room.status === '进行中' ? '观战' : '加入'}
+                    {room.deleted
+                      ? '已关闭'
+                      : full && room.status !== '进行中'
+                        ? '已满'
+                        : room.status === '进行中'
+                          ? '观战'
+                          : '加入'}
                   </button>
                 </div>
               </div>
@@ -511,9 +536,10 @@ const RoomListPanel = ({ rooms, refreshing, onRefresh }) => {
         <button
           type="button"
           className="load-more-btn"
-          onClick={() => window.alert('Load more rooms（示例，后续接入分页/加载更多）')}
+          onClick={onLoadMore}
+          disabled={loadingMore || !hasMore}
         >
-          Load more
+          {loadingMore ? 'Loading…' : hasMore ? 'Load more' : 'No more rooms'}
         </button>
       </div>
     </aside>

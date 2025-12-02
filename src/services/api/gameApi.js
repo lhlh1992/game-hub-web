@@ -85,5 +85,23 @@ export async function leaveRoom(roomId) {
   }
 }
 
+/**
+ * 获取在线房间列表（大厅用）
+ * @param {{cursor?: number | null, limit?: number}} params
+ * @returns {Promise<{items: Array, nextCursor: number | null, hasMore: boolean}>}
+ */
+export async function listGomokuRooms({ cursor = null, limit = 4 } = {}) {
+  const qs = new URLSearchParams()
+  if (cursor) qs.append('cursor', String(cursor))
+  if (limit) qs.append('limit', String(limit))
+  const url = `/game-service/api/gomoku/rooms${qs.toString() ? `?${qs.toString()}` : ''}`
+
+  try {
+    return await handleApiResponse(apiGet(url))
+  } catch (error) {
+    throw new Error(`获取房间列表失败: ${error.message}`)
+  }
+}
+
 
 
