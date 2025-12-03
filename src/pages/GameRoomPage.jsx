@@ -113,6 +113,8 @@ const GameRoomPage = () => {
     wsConnected,
     readyStatus,
     roomPhase,
+    mode,
+    aiSide,
     placeStone,
     requestResign,
     requestRestart,
@@ -210,9 +212,10 @@ const GameRoomPage = () => {
       ...prev,
       sideBadgeClass: mySide === 'O' ? 'side-black' : 'side-white',
       sideText: mySide === 'O' ? 'Black' : 'White',
-      name: prev.name === 'Waiting...' && mySide === 'PVE' ? 'AI Opponent' : prev.name,
+      // PVE 模式下，对手是 AI；PVP 模式下，如果还没有玩家加入，保持 "Waiting..."
+      name: mode === 'PVE' && prev.name === 'Waiting...' ? 'AI Opponent' : prev.name,
     }))
-  }, [mySide])
+  }, [mySide, mode])
 
   useEffect(() => {
     setStatusBar((prev) => ({
@@ -276,20 +279,26 @@ const GameRoomPage = () => {
   // 计算自己与对手的准备状态，用于在左右两侧展示
   const selfReady = !!readyStatus?.[currentUserId]
   const { opponentReady, isPve } = useMemo(() => {
+    // 根据真实的 mode 判断是否是 PVE
+    const isPveMode = mode === 'PVE'
+    
     if (!readyStatus) {
-      return { opponentReady: false, isPve: false }
+      return { opponentReady: false, isPve: isPveMode }
     }
-    const userIds = Object.keys(readyStatus)
-    if (userIds.length <= 1) {
-      // 只有自己一个玩家，推断为 PVE，AI 默认已准备
+    
+    if (isPveMode) {
+      // PVE 模式：AI 默认已准备
       return { opponentReady: true, isPve: true }
     }
+    
+    // PVP 模式：查找对手的准备状态
+    const userIds = Object.keys(readyStatus)
     const opponentId = userIds.find((id) => id !== currentUserId)
     return {
       opponentReady: opponentId ? !!readyStatus[opponentId] : false,
       isPve: false,
     }
-  }, [readyStatus, currentUserId])
+  }, [readyStatus, currentUserId, mode])
 
   const handleLeaveRoom = useCallback(async () => {
     if (leaving) {
@@ -461,8 +470,14 @@ const GameRoomPage = () => {
             idPrefix="opponent"
             player={opponentPlayer}
             wsConnected={wsConnected}
-            readyLabel={`${isPve ? 'AI' : '对手'} ${opponentReady ? '已准备' : '未准备'}`}
-            readyAccent={opponentReady}
+            readyLabel={
+              isPve
+                ? 'AI 已准备'
+                : opponentPlayer.name === 'Waiting...'
+                  ? '等待玩家加入'
+                  : `对手 ${opponentReady ? '已准备' : '未准备'}`
+            }
+            readyAccent={isPve || opponentReady}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>

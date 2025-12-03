@@ -74,6 +74,19 @@ export async function endOngoingGame(roomId) {
 }
 
 /**
+ * 加入房间：玩家加入其他玩家创建的房间
+ * @param {string} roomId 房间ID
+ * @returns {Promise<{side: 'X' | 'O'}>} 分配的座位
+ */
+export async function joinRoom(roomId) {
+  try {
+    return await handleApiResponse(post(`/game-service/api/gomoku/rooms/${roomId}/join`, {}))
+  } catch (error) {
+    throw new Error(`加入房间失败: ${error.message}`)
+  }
+}
+
+/**
  * 主动离开房间
  * @param {string} roomId
  */

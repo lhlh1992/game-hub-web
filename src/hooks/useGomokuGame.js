@@ -155,6 +155,8 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [readyStatus, setReadyStatus] = useState({}) // Map<userId, ready>
   const [roomPhase, setRoomPhase] = useState('WAITING') // WAITING, PLAYING, ENDED
   const [isOwner, setIsOwner] = useState(false) // 是否是房主
+  const [mode, setMode] = useState(null) // 'PVP' | 'PVE'
+  const [aiSide, setAiSide] = useState(null) // 'X' | 'O' | null
 
   const roomRef = useRef(roomId)
   const seatKeyRef = useRef(null)
@@ -550,6 +552,15 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       if (snap.readyStatus) {
         setReadyStatus(snap.readyStatus)
       }
+      // 提取房间模式信息
+      if (snap.mode) {
+        setMode(String(snap.mode).toUpperCase())
+      }
+      if (snap.aiSide !== undefined && snap.aiSide !== null) {
+        setAiSide(String(snap.aiSide).toUpperCase())
+      } else {
+        setAiSide(null)
+      }
     },
     [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
   )
@@ -688,6 +699,8 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     readyStatus,
     roomPhase,
     isOwner,
+    mode, // 'PVP' | 'PVE'
+    aiSide, // 'X' | 'O' | null
     placeStone,
     requestResign,
     requestRestart,

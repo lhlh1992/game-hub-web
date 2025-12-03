@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/lobby.css'
-import { createRoom, listGomokuRooms } from '../services/api/gameApi.js'
+import { createRoom, listGomokuRooms, joinRoom } from '../services/api/gameApi.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
 const RULE_ITEMS = [
@@ -472,14 +472,30 @@ function mapRoomSummaryToView(summary, currentUserId = null) {
 const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onLoadMore }) => {
   const navigate = useNavigate()
   const isEmpty = !rooms || rooms.length === 0
+  const [joiningRoomId, setJoiningRoomId] = useState(null)
 
-  const handleJoin = (room) => {
+  const handleJoin = async (room) => {
+    // 房主不能点击（按钮已置灰，这里做双重保护）
     if (room.isMyRoom) {
-      // 如果是自己的房间，直接进入
+      return
+    }
+
+    // 防止重复点击
+    if (joiningRoomId) {
+      return
+    }
+
+    try {
+      setJoiningRoomId(room.id)
+      // 调用加入房间接口，自动绑定座位
+      await joinRoom(room.id)
+      // 加入成功后跳转到房间页面
       navigate(`/game/${room.id}`)
-    } else {
-      // 加入别人的房间
-      navigate(`/game/${room.id}`)
+    } catch (error) {
+      console.error('加入房间失败', error)
+      window.alert(`加入房间失败：${error.message}`)
+    } finally {
+      setJoiningRoomId(null)
     }
   }
 
@@ -535,17 +551,24 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
                     type="button"
                     className={`join-btn ${room.isMyRoom ? 'join-btn-my' : ''}`}
                     onClick={() => handleJoin(room)}
-                    disabled={room.deleted || (full && room.status !== '进行中')}
+                    disabled={
+                      room.isMyRoom || 
+                      room.deleted || 
+                      (full && room.status !== '进行中') ||
+                      joiningRoomId === room.id
+                    }
                   >
-                    {room.deleted
-                      ? '已关闭'
-                      : full && room.status !== '进行中'
-                        ? '已满'
-                        : room.isMyRoom
-                          ? '进入房间'
-                          : room.status === '进行中'
-                            ? '观战'
-                            : '加入'}
+                    {joiningRoomId === room.id
+                      ? '加入中...'
+                      : room.deleted
+                        ? '已关闭'
+                        : full && room.status !== '进行中'
+                          ? '已满'
+                          : room.isMyRoom
+                            ? '我的房间'
+                            : room.status === '进行中'
+                              ? '观战'
+                              : '加入'}
                   </button>
                 </div>
               </div>
