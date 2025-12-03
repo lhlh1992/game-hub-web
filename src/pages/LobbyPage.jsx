@@ -445,9 +445,12 @@ function mapRoomSummaryToView(summary) {
   const players = deleted ? 0 : phase === 'PLAYING' ? 2 : 1
   const capacity = 2
   const statusText = deleted ? '已关闭' : phase === 'PLAYING' ? '进行中' : '等待中'
+  // 昵称：优先使用后端的 ownerName，退化为一个通用“玩家”
+  const rawOwner = summary.ownerName || ''
+  const displayName = rawOwner && rawOwner.trim().length > 0 ? rawOwner.trim() : '玩家'
   return {
     id: summary.roomId,
-    owner: summary.ownerUserId || '玩家',
+    owner: displayName,
     avatar: '/images/avatar-default.png',
     rule: summary.rule || 'STANDARD',
     status: statusText,
@@ -496,7 +499,6 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
                   <img className="room-avatar" src={room.avatar} alt={room.owner} />
                   <div>
                     <div className="owner-name">{room.owner}</div>
-                    <div className="room-id">ID: {room.id}</div>
                   </div>
                 </div>
                 <div className="room-card-meta">
