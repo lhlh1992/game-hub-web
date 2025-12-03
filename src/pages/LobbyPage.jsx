@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../styles/lobby.css'
 import { createRoom, listGomokuRooms } from '../services/api/gameApi.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 const RULE_ITEMS = [
   {
@@ -31,6 +32,7 @@ const DEFAULT_CREATE_FORM = {
 }
 
 const LobbyPage = () => {
+  const { user } = useAuth()
   const [pveModalOpen, setPveModalOpen] = useState(false)
   const [pveRule, setPveRule] = useState('STANDARD')
   const [pveStatus, setPveStatus] = useState({ message: '', variant: '' })
@@ -69,13 +71,16 @@ const LobbyPage = () => {
     }
   }, [])
 
+  // 获取当前用户ID（用于判断是否是自己的房间）
+  const currentUserId = user?.keycloakUserId || user?.id || user?.sub || null
+
   // 在线房间列表：首屏加载
   useEffect(() => {
     const loadInitialRooms = async () => {
       try {
         setRefreshingRooms(true)
         const res = await listGomokuRooms({ limit: 4 })
-        const mapped = (res.items || []).map(mapRoomSummaryToView)
+        const mapped = (res.items || []).map((item) => mapRoomSummaryToView(item, currentUserId))
         setRooms(mapped)
         setRoomsCursor(res.nextCursor || null)
         setRoomsHasMore(!!res.nextCursor)
@@ -86,7 +91,7 @@ const LobbyPage = () => {
       }
     }
     loadInitialRooms()
-  }, [])
+  }, [currentUserId])
 
   // 不再需要 ensureToken，createRoom 会自动从 Keycloak 获取 token
 
@@ -261,7 +266,7 @@ const LobbyPage = () => {
               try {
                 setRefreshingRooms(true)
                 const res = await listGomokuRooms({ limit: 4 })
-                const mapped = (res.items || []).map(mapRoomSummaryToView)
+                const mapped = (res.items || []).map((item) => mapRoomSummaryToView(item, currentUserId))
                 setRooms(mapped)
                 setRoomsCursor(res.nextCursor || null)
                 setRoomsHasMore(!!res.nextCursor)
@@ -276,7 +281,7 @@ const LobbyPage = () => {
               try {
                 setLoadingMoreRooms(true)
                 const res = await listGomokuRooms({ cursor: roomsCursor, limit: 4 })
-                const mapped = (res.items || []).map(mapRoomSummaryToView)
+                const mapped = (res.items || []).map((item) => mapRoomSummaryToView(item, currentUserId))
                 setRooms((prev) => [...prev, ...mapped])
                 setRoomsCursor(res.nextCursor || null)
                 setRoomsHasMore(!!res.nextCursor)
@@ -438,19 +443,23 @@ const ModeCard = ({
 }
 
 // 将后端 RoomSummary 映射为前端展示模型的辅助函数
-function mapRoomSummaryToView(summary) {
+function mapRoomSummaryToView(summary, currentUserId = null) {
   const phase = summary.phase || 'WAITING'
   const deleted = summary.deleted
   // 临时：人数/容量用简单规则占位，后续可接真实在线人数
   const players = deleted ? 0 : phase === 'PLAYING' ? 2 : 1
   const capacity = 2
   const statusText = deleted ? '已关闭' : phase === 'PLAYING' ? '进行中' : '等待中'
-  // 昵称：优先使用后端的 ownerName，退化为一个通用“玩家”
+  // 昵称：优先使用后端的 ownerName，退化为一个通用"玩家"
   const rawOwner = summary.ownerName || ''
   const displayName = rawOwner && rawOwner.trim().length > 0 ? rawOwner.trim() : '玩家'
+  // 判断是否是自己的房间
+  const isMyRoom = currentUserId && summary.ownerUserId && summary.ownerUserId === currentUserId
   return {
     id: summary.roomId,
     owner: displayName,
+    ownerUserId: summary.ownerUserId,
+    isMyRoom,
     avatar: '/images/avatar-default.png',
     rule: summary.rule || 'STANDARD',
     status: statusText,
@@ -461,11 +470,17 @@ function mapRoomSummaryToView(summary) {
 }
 
 const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onLoadMore }) => {
+  const navigate = useNavigate()
   const isEmpty = !rooms || rooms.length === 0
 
   const handleJoin = (room) => {
-    // 先保留占位行为，后续接入真实加入房间逻辑
-    window.alert(`加入房间 ${room.id}（示例，后续接入真实 API）`)
+    if (room.isMyRoom) {
+      // 如果是自己的房间，直接进入
+      navigate(`/game/${room.id}`)
+    } else {
+      // 加入别人的房间
+      navigate(`/game/${room.id}`)
+    }
   }
 
   return (
@@ -494,11 +509,14 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
           rooms.map((room) => {
             const full = room.players >= room.capacity
             return (
-              <div key={room.id} className="room-card">
+              <div key={room.id} className={`room-card ${room.isMyRoom ? 'room-card-my' : ''}`}>
                 <div className="room-card-owner">
                   <img className="room-avatar" src={room.avatar} alt={room.owner} />
                   <div>
-                    <div className="owner-name">{room.owner}</div>
+                    <div className="owner-name">
+                      {room.owner}
+                      {room.isMyRoom && <span className="owner-badge">我的房间</span>}
+                    </div>
                   </div>
                 </div>
                 <div className="room-card-meta">
@@ -515,7 +533,7 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
                 <div className="room-card-action">
                   <button
                     type="button"
-                    className="join-btn"
+                    className={`join-btn ${room.isMyRoom ? 'join-btn-my' : ''}`}
                     onClick={() => handleJoin(room)}
                     disabled={room.deleted || (full && room.status !== '进行中')}
                   >
@@ -523,9 +541,11 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
                       ? '已关闭'
                       : full && room.status !== '进行中'
                         ? '已满'
-                        : room.status === '进行中'
-                          ? '观战'
-                          : '加入'}
+                        : room.isMyRoom
+                          ? '进入房间'
+                          : room.status === '进行中'
+                            ? '观战'
+                            : '加入'}
                   </button>
                 </div>
               </div>

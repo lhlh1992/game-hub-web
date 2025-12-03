@@ -358,6 +358,16 @@
     border-color: rgba(255, 107, 107, 0.5);
 }
 
+.room-card-my {
+    border-color: rgba(255, 107, 107, 0.4);
+    background: rgba(255, 107, 107, 0.03);
+}
+
+.room-card-my:hover {
+    border-color: rgba(255, 107, 107, 0.6);
+    background: rgba(255, 107, 107, 0.05);
+}
+
 .room-card-owner {
     display: flex;
     align-items: center;
@@ -381,6 +391,21 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.owner-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 107, 107, 0.15);
+    color: var(--gh-primary);
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .room-id {
@@ -470,6 +495,16 @@
     opacity: 0.6;
     cursor: not-allowed;
     box-shadow: none;
+}
+
+.join-btn-my {
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.9), rgba(255, 107, 107, 0.7));
+    box-shadow: 0 6px 18px rgba(255, 107, 107, 0.4);
+}
+
+.join-btn-my:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+    box-shadow: 0 10px 24px rgba(255, 107, 107, 0.5);
 }
 
 .room-list-empty {
