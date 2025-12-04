@@ -86,7 +86,8 @@ const GameRoomPage = () => {
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
-  const [opponentPlayer, setOpponentPlayer] = useState(DEFAULT_OPPONENT)
+  // 使用函数初始化，确保每次都是新对象
+  const [opponentPlayer, setOpponentPlayer] = useState(() => ({ ...DEFAULT_OPPONENT }))
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
   const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
   const [messageInfo, setMessageInfo] = useState({ show: false, text: '', type: 'error' })
@@ -115,6 +116,8 @@ const GameRoomPage = () => {
     roomPhase,
     mode,
     aiSide,
+    seatXUserId,
+    seatOUserId,
     placeStone,
     requestResign,
     requestRestart,
@@ -200,22 +203,139 @@ const GameRoomPage = () => {
   }, [user])
 
   useEffect(() => {
-    if (!mySide) {
-      return
+    // 如果 mySide 已设置，更新自己的玩家信息
+    if (mySide) {
+      setSelfPlayer((prev) => ({
+        ...prev,
+        sideBadgeClass: mySide === 'O' ? 'side-white' : 'side-black',
+        sideText: mySide === 'O' ? 'White' : 'Black',
+      }))
     }
-    setSelfPlayer((prev) => ({
-      ...prev,
-      sideBadgeClass: mySide === 'O' ? 'side-white' : 'side-black',
-      sideText: mySide === 'O' ? 'White' : 'Black',
-    }))
-    setOpponentPlayer((prev) => ({
-      ...prev,
-      sideBadgeClass: mySide === 'O' ? 'side-black' : 'side-white',
-      sideText: mySide === 'O' ? 'Black' : 'White',
-      // PVE 模式下，对手是 AI；PVP 模式下，如果还没有玩家加入，保持 "Waiting..."
-      name: mode === 'PVE' && prev.name === 'Waiting...' ? 'AI Opponent' : prev.name,
-    }))
-  }, [mySide, mode])
+    
+    // 根据座位用户ID和模式确定对手信息
+    // 即使 mySide 未设置，也可以根据 seatXUserId 和 seatOUserId 来确定对手
+    // 如果 mySide 已设置，使用 mySide 来确定对手；否则，根据 currentUserId 来确定
+    let opponentSide = null
+    let opponentUserId = null
+    
+    if (mySide) {
+      // mySide 已设置，直接根据 mySide 确定对手
+      opponentSide = mySide === 'O' ? 'X' : 'O'
+      opponentUserId = opponentSide === 'X' ? seatXUserId : seatOUserId
+    } else {
+      // mySide 未设置，根据 currentUserId 和 seatXUserId/seatOUserId 来确定对手
+      // 如果 currentUserId 等于 seatXUserId，则对手是 seatOUserId；反之亦然
+      if (currentUserId && seatXUserId && seatOUserId) {
+        if (currentUserId === seatXUserId) {
+          opponentUserId = seatOUserId
+          opponentSide = 'O'
+        } else if (currentUserId === seatOUserId) {
+          opponentUserId = seatXUserId
+          opponentSide = 'X'
+        }
+      } else if (currentUserId && seatXUserId && currentUserId === seatXUserId) {
+        // 当前用户是黑棋，对手是白棋（如果存在）
+        opponentUserId = seatOUserId
+        opponentSide = 'O'
+      } else if (currentUserId && seatOUserId && currentUserId === seatOUserId) {
+        // 当前用户是白棋，对手是黑棋（如果存在）
+        opponentUserId = seatXUserId
+        opponentSide = 'X'
+      } else if (seatXUserId && seatOUserId) {
+        // 两个座位都有用户，但 currentUserId 不匹配，可能是数据还没同步
+        // 这种情况下，暂时无法确定对手，等待 mySide 设置
+        console.log('[DEBUG-对手显示] useEffect 等待 mySide 设置', {
+          currentUserId,
+          seatXUserId,
+          seatOUserId,
+        })
+        return
+      }
+    }
+    
+    // 确定对手用户ID：根据我的座位，找到对手座位的用户ID
+    // 注意：如果对手用户ID等于当前用户ID，说明可能是数据异常，不应该显示自己
+    const isOpponentSelf = opponentUserId === currentUserId
+    const shouldShowOpponent = opponentUserId && !isOpponentSelf && String(opponentUserId).trim() !== ''
+    
+    // 确定显示的名字
+    // 注意：mode 可能是 null（初始状态），需要检查 snap.mode 或使用默认值
+    let opponentName = 'Waiting...'
+    const normalizedMode = mode ? String(mode).toUpperCase() : null
+    if (normalizedMode === 'PVE') {
+      opponentName = 'AI Opponent'
+    } else if (shouldShowOpponent) {
+      opponentName = `玩家 ${String(opponentUserId).substring(0, 8)}...` // 临时显示用户ID，后续可改为昵称
+    }
+    
+    // 确定对手的 sideBadgeClass 和 sideText
+    // 如果 opponentSide 已确定，使用它；否则根据 mySide 推断
+    let opponentSideBadgeClass = 'side-white'
+    let opponentSideText = 'White'
+    if (opponentSide === 'X') {
+      opponentSideBadgeClass = 'side-black'
+      opponentSideText = 'Black'
+    } else if (opponentSide === 'O') {
+      opponentSideBadgeClass = 'side-white'
+      opponentSideText = 'White'
+    } else if (mySide) {
+      // 如果 opponentSide 未确定但 mySide 已设置，根据 mySide 推断
+      opponentSideBadgeClass = mySide === 'O' ? 'side-black' : 'side-white'
+      opponentSideText = mySide === 'O' ? 'Black' : 'White'
+    }
+    
+    console.log('[DEBUG-对手显示] GameRoomPage 更新对手信息', {
+      mySide,
+      opponentSide,
+      mode,
+      normalizedMode,
+      seatXUserId,
+      seatOUserId,
+      opponentUserId,
+      currentUserId,
+      isOpponentSelf,
+      shouldShowOpponent,
+      opponentName,
+      opponentSideBadgeClass,
+      opponentSideText,
+      '最终显示': opponentName,
+      'opponentPlayer.name 将被设置为': opponentName,
+    })
+    
+    setOpponentPlayer((prev) => {
+      // 确保总是创建新对象，避免引用问题
+      const updated = {
+        ...prev,
+        sideBadgeClass: opponentSideBadgeClass,
+        sideText: opponentSideText,
+        name: opponentName,
+        avatar: prev.avatar || DEFAULT_AVATAR,
+        countdownText: prev.countdownText || '--',
+        countdownClass: prev.countdownClass || '',
+        countdownProgress: prev.countdownProgress ?? 0,
+        isWinner: prev.isWinner ?? false,
+        isActive: prev.isActive ?? false,
+      }
+      console.log('[DEBUG-对手显示] setOpponentPlayer 更新', {
+        prevName: prev.name,
+        newName: opponentName,
+        updatedName: updated.name,
+        '完整 updated 对象': updated,
+        'prev === DEFAULT_OPPONENT': prev === DEFAULT_OPPONENT,
+        'updated === DEFAULT_OPPONENT': updated === DEFAULT_OPPONENT,
+      })
+      return updated
+    })
+  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId])
+
+  // 调试：监听 opponentPlayer 的变化
+  useEffect(() => {
+    console.log('[DEBUG-对手显示] opponentPlayer 状态变化', {
+      name: opponentPlayer.name,
+      sideBadgeClass: opponentPlayer.sideBadgeClass,
+      sideText: opponentPlayer.sideText,
+    })
+  }, [opponentPlayer])
 
   useEffect(() => {
     setStatusBar((prev) => ({
@@ -269,12 +389,32 @@ const GameRoomPage = () => {
     if (!readyStatus || Object.keys(readyStatus).length === 0) {
       return false
     }
-    // PVE模式：只需要房主准备即可（AI默认已准备）
-    // PVP模式：需要所有玩家都准备
-    // 这里简化处理，检查所有在readyStatus中的玩家是否都已准备
-    const allReady = Object.values(readyStatus).every((ready) => ready === true)
-    return allReady && Object.keys(readyStatus).length > 0
-  }, [readyStatus])
+    
+    const isPveMode = mode === 'PVE'
+    
+    if (isPveMode) {
+      // PVE模式：只需要房主（当前玩家）准备即可（AI默认已准备）
+      return !!readyStatus[currentUserId]
+    } else {
+      // PVP模式：需要至少2个玩家，且所有玩家都准备
+      // 检查座位占用情况：需要黑棋和白棋座位都有玩家
+      const hasBlackPlayer = !!seatXUserId
+      const hasWhitePlayer = !!seatOUserId
+      
+      if (!hasBlackPlayer || !hasWhitePlayer) {
+        // 至少有一个座位没有玩家，不能开始
+        return false
+      }
+      
+      // 检查所有在房间内的玩家是否都已准备
+      const playersInRoom = []
+      if (seatXUserId) playersInRoom.push(seatXUserId)
+      if (seatOUserId) playersInRoom.push(seatOUserId)
+      
+      // 所有玩家都必须准备
+      return playersInRoom.every((playerId) => !!readyStatus[playerId])
+    }
+  }, [readyStatus, mode, currentUserId, seatXUserId, seatOUserId])
 
   // 计算自己与对手的准备状态，用于在左右两侧展示
   const selfReady = !!readyStatus?.[currentUserId]
@@ -466,6 +606,15 @@ const GameRoomPage = () => {
         </div>
 
         <div className="player-panel player-right">
+          {(() => {
+            // 调试：检查传递给 PlayerCard 的 opponentPlayer 值
+            console.log('[DEBUG-对手显示] 渲染 PlayerCard 前检查 opponentPlayer', {
+              opponentPlayerName: opponentPlayer.name,
+              opponentPlayerObject: opponentPlayer,
+              'opponentPlayer === DEFAULT_OPPONENT': opponentPlayer === DEFAULT_OPPONENT,
+            })
+            return null
+          })()}
           <PlayerCard
             idPrefix="opponent"
             player={opponentPlayer}
@@ -568,6 +717,18 @@ const PlayerCard = ({
   readyButtonLabel,
   onToggleReady,
 }) => {
+  // 调试：检查 PlayerCard 接收到的 player prop
+  // 使用 useEffect 确保在每次渲染时都记录
+  useEffect(() => {
+    if (idPrefix === 'opponent') {
+      console.log('[DEBUG-对手显示] PlayerCard useEffect (opponent)', {
+        playerName: player?.name,
+        playerObject: player,
+        'player === DEFAULT_OPPONENT': player === DEFAULT_OPPONENT,
+      })
+    }
+  }, [idPrefix, player])
+  
   const progress = Math.max(0, Math.min(1, player.countdownProgress ?? 0))
   const dashArray = 283
   const dashOffset = dashArray * (1 - progress)
@@ -846,8 +1007,6 @@ const detectWinCellsFromGrid = (grid) => {
         }
         if (coords.length >= 5) {
           const result = coords.slice(0, 5)
-          // 调试：GameRoomPage 检测到5连
-          console.log(`[detectWinCellsFromGrid] 检测到5连！棋子: ${piece}, 坐标: ${result.map(([x, y]) => `${x},${y}`).join(', ')}, 方向: [${dx}, ${dy}]`)
           return result
         }
       }
@@ -859,26 +1018,20 @@ const detectWinCellsFromGrid = (grid) => {
 const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
   const effectiveWinSet = useMemo(() => {
     if (winLines && winLines.size >= 5) {
-      console.log(`[effectiveWinSet] 使用 winLines，大小: ${winLines.size}`)
       return winLines
     }
-    console.log(`[effectiveWinSet] winLines 为空或不足5个，开始本地检测, winLines.size: ${winLines?.size || 0}`)
     const detected = detectWinCellsFromGrid(grid)
     if (!detected) {
-      console.log(`[effectiveWinSet] 本地检测未找到5连`)
       return null
     }
     const result = new Set(detected.map(([x, y]) => `${x},${y}`))
-    console.log(`[effectiveWinSet] 本地检测到5连，坐标: ${Array.from(result).join(', ')}`)
     return result
   }, [grid, winLines])
 
   const winningLinePoints = useMemo(() => {
     if (!effectiveWinSet || effectiveWinSet.size < 2) {
-      console.log(`[winningLinePoints] effectiveWinSet 为空或不足2个点, size: ${effectiveWinSet?.size || 0}`)
       return null
     }
-    console.log(`[winningLinePoints] 开始计算连线，坐标数量: ${effectiveWinSet.size}`)
     const coords = Array.from(effectiveWinSet)
       .map((key) => key.split(',').map(Number))
       .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
@@ -913,7 +1066,6 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
       start: toBoardPoint(sorted[0]),
       end: toBoardPoint(sorted[sorted.length - 1]),
     }
-    console.log(`[winningLinePoints] 计算完成, 起点: (${result.start.cx}, ${result.start.cy}), 终点: (${result.end.cx}, ${result.end.cy})`)
     return result
   }, [effectiveWinSet])
 
@@ -1024,40 +1176,30 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
     >
       <div id="board" style={{ width: '100%', height: '100%', position: 'relative' }}>
         {winningLinePoints ? (
-          (() => {
-            console.log(`[渲染SVG] 渲染连线, 起点: (${winningLinePoints.start.cx}, ${winningLinePoints.start.cy}), 终点: (${winningLinePoints.end.cx}, ${winningLinePoints.end.cy})`)
-            return (
-              <svg
-                className="win-line-overlay"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  zIndex: 15,
-                }}
-              >
-                <line
-                  x1={winningLinePoints.start.cx}
-                  y1={winningLinePoints.start.cy}
-                  x2={winningLinePoints.end.cx}
-                  y2={winningLinePoints.end.cy}
-                  stroke="#FF0000"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  opacity="0.9"
-                />
-              </svg>
-            )
-          })()
-        ) : (
-          (() => {
-            console.log(`[渲染SVG] winningLinePoints 为空，不渲染SVG`)
-            return null
-          })()
-        )}
+          <svg
+            className="win-line-overlay"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              zIndex: 15,
+            }}
+          >
+            <line
+              x1={winningLinePoints.start.cx}
+              y1={winningLinePoints.start.cy}
+              x2={winningLinePoints.end.cx}
+              y2={winningLinePoints.end.cy}
+              stroke="#FF0000"
+              strokeWidth="4"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+          </svg>
+        ) : null}
         {cells}
         {starNodes}
         {coordY}

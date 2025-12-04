@@ -116,5 +116,78 @@ export async function listGomokuRooms({ cursor = null, limit = 4 } = {}) {
   }
 }
 
+/**
+ * 获取房间全貌快照（用于首屏渲染）
+ * @param {string} roomId 房间ID
+ * @returns {Promise<GomokuSnapshot>} 房间完整快照
+ */
+export async function getRoomView(roomId) {
+  try {
+    return await handleApiResponse(apiGet(`/game-service/api/gomoku/rooms/${roomId}/view`))
+  } catch (error) {
+    throw new Error(`获取房间视图失败: ${error.message}`)
+  }
+}
+
+/**
+ * 批量获取用户信息（用于游戏房间显示用户详细信息）
+ * @param {string[]} userIds Keycloak 用户ID列表
+ * @returns {Promise<Array<UserInfo>>} 用户信息列表
+ */
+export async function getUserInfos(userIds) {
+  if (!userIds || userIds.length === 0) {
+    return []
+  }
+  try {
+    // 优先使用新接口，如果失败则尝试旧接口（兼容性）
+    try {
+      return await handleApiResponse(post('/system-service/api/users/users/batch', userIds))
+    } catch (error) {
+      // 兼容旧接口
+      return await handleApiResponse(post('/system-service/api/users/players/batch', userIds))
+    }
+  } catch (error) {
+    console.error('批量获取用户信息失败', error)
+    return []
+  }
+}
+
+/**
+ * 根据单个用户ID获取用户信息
+ * @param {string} userId Keycloak 用户ID
+ * @returns {Promise<UserInfo | null>} 用户信息
+ */
+export async function getUserInfo(userId) {
+  if (!userId) {
+    return null
+  }
+  try {
+    // 优先使用新接口，如果失败则尝试旧接口（兼容性）
+    try {
+      return await handleApiResponse(apiGet(`/system-service/api/users/users/${userId}`))
+    } catch (error) {
+      // 兼容旧接口
+      return await handleApiResponse(apiGet(`/system-service/api/users/players/${userId}`))
+    }
+  } catch (error) {
+    console.error('获取用户信息失败', error)
+    return null
+  }
+}
+
+/**
+ * @deprecated 使用 getUserInfos 替代
+ */
+export async function getPlayerInfos(userIds) {
+  return getUserInfos(userIds)
+}
+
+/**
+ * @deprecated 使用 getUserInfo 替代
+ */
+export async function getPlayerInfo(userId) {
+  return getUserInfo(userId)
+}
+
 
 

@@ -189,6 +189,8 @@ export function subscribeFullSync(onFullSync) {
   const sub = client.subscribe(topic, (frame) => {
     try {
       const snap = JSON.parse(frame.body)
+      // 调试用：每次进入房间 / 恢复对局时打印完整房间视图（后端的 FullSync 快照）
+      console.log('[WS][GOMOKU FULL]', snap)
       onFullSync(snap)
     } catch (error) {
       console.error('解析完整同步失败', error)

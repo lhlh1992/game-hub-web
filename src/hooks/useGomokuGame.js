@@ -13,6 +13,7 @@ import {
   disconnectWebSocket,
   isConnected,
 } from '../services/ws/gomokuSocket.js'
+import { getRoomView } from '../services/api/gameApi.js'
 
 const BOARD_SIZE = 15
 const EMPTY_BOARD = Array(BOARD_SIZE)
@@ -101,8 +102,6 @@ const collectWinLineForPiece = (grid, piece) => {
         if (coords.length >= 5) {
           const firstFive = coords.slice(0, 5)
           const winSet = new Set(firstFive.map(([px, py]) => `${px},${py}`))
-          // 调试：检测到5连
-          console.log(`[collectWinLineForPiece] 检测到5连！棋子: ${piece}, 坐标: ${Array.from(winSet).join(', ')}, 方向: [${dx}, ${dy}]`)
           return {
             piece,
             cells: winSet,
@@ -129,8 +128,6 @@ const detectWinLineCells = (grid, winnerHint) => {
     seen.add(piece)
     const result = collectWinLineForPiece(grid, piece)
     if (result) {
-      // 调试：detectWinLineCells 返回结果
-      console.log(`[detectWinLineCells] 检测到5连！棋子: ${result.piece}, 坐标数量: ${result.cells.size}, 坐标: ${Array.from(result.cells).join(', ')}`)
       return result
     }
   }
@@ -157,6 +154,11 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [isOwner, setIsOwner] = useState(false) // 是否是房主
   const [mode, setMode] = useState(null) // 'PVP' | 'PVE'
   const [aiSide, setAiSide] = useState(null) // 'X' | 'O' | null
+  const [seatXUserId, setSeatXUserId] = useState(null) // 黑棋座位用户ID（新增：用于显示玩家信息）
+  const [seatOUserId, setSeatOUserId] = useState(null) // 白棋座位用户ID（新增：用于显示玩家信息）
+  const [seatXUserInfo, setSeatXUserInfo] = useState(null) // 黑棋座位用户详细信息
+  const [seatOUserInfo, setSeatOUserInfo] = useState(null) // 白棋座位用户详细信息
+  const [roomCreatedAt, setRoomCreatedAt] = useState(null) // 房间创建时间（新增）
 
   const roomRef = useRef(roomId)
   const seatKeyRef = useRef(null)
@@ -170,6 +172,37 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   useEffect(() => {
     roomRef.current = roomId
   }, [roomId])
+
+  // 首屏加载：先通过 HTTP 获取房间全貌（不依赖 WebSocket）
+  useEffect(() => {
+    if (!roomId) {
+      return
+    }
+
+    let mounted = true
+
+    // 首屏通过 HTTP 获取房间全貌，确保即使 WebSocket 未连接也能看到房间状态
+    getRoomView(roomId)
+      .then((snap) => {
+        if (!mounted) return
+        console.log('[DEBUG-对手显示] 首屏加载房间快照', {
+          roomId: snap.roomId,
+          seatXUserId: snap.seatXUserId,
+          seatOUserId: snap.seatOUserId,
+          mode: snap.mode,
+        })
+        handleFullSync(snap)
+      })
+      .catch((error) => {
+        if (!mounted) return
+        onMessage?.(`加载房间信息失败: ${error.message}`, 'error')
+      })
+
+    return () => {
+      mounted = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]) // handleFullSync 是稳定的，不需要加入依赖项（避免循环依赖）
 
   // WebSocket 连接管理
   useEffect(() => {
@@ -197,7 +230,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         setMySide(side)
       })
 
-      // 订阅完整同步
+      // 订阅完整同步（WebSocket 重连时的 FullSync）
       subscribeFullSync((snap) => {
         if (!mounted) return
         handleFullSync(snap)
@@ -205,6 +238,24 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
 
       // 发送恢复请求
       sendResume(roomId, seatKeyRef.current)
+      
+      // WebSocket 连接后，立即获取一次最新房间快照（确保获取最新的座位信息）
+      // 因为可能有其他玩家通过 HTTP joinRoom，而 WebSocket 可能还没连接
+      getRoomView(roomId)
+        .then((snap) => {
+          if (!mounted) return
+          console.log('[DEBUG-对手显示] WebSocket 连接后获取房间快照', {
+            roomId: snap.roomId,
+            seatXUserId: snap.seatXUserId,
+            seatOUserId: snap.seatOUserId,
+            mode: snap.mode,
+          })
+          handleFullSync(snap)
+        })
+        .catch((error) => {
+          if (!mounted) return
+          // 静默失败，不影响用户体验
+        })
     }
 
     const handleDisconnect = () => {
@@ -256,8 +307,15 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         updateSeriesInfo(series)
       }
     } else if (evt.type === 'SNAPSHOT') {
+      // 统一使用 SNAPSHOT 事件更新房间全貌（包含座位、准备状态、phase 等）
       const snap = evt.payload
       if (snap) {
+        console.log('[DEBUG-对手显示] 收到 SNAPSHOT 事件', {
+          roomId: snap.roomId,
+          seatXUserId: snap.seatXUserId,
+          seatOUserId: snap.seatOUserId,
+          mode: snap.mode,
+        })
         handleFullSync(snap)
       }
     } else if (evt.type === 'TICK') {
@@ -281,11 +339,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         }
       }
     } else if (evt.type === 'READY_STATUS') {
-      // 准备状态更新
+      // 【已废弃】准备状态更新 - 统一使用 SNAPSHOT 事件
+      // 保留此分支仅为向后兼容，新代码应依赖 SNAPSHOT 事件
       const status = evt.payload || {}
       setReadyStatus(status)
     } else if (evt.type === 'ROOM_STATUS') {
-      // 房间状态更新
+      // 【已废弃】房间状态更新 - 统一使用 SNAPSHOT 事件
+      // 保留此分支仅为向后兼容，新代码应依赖 SNAPSHOT 事件
       const status = evt.payload || {}
       if (status.phase) {
         setRoomPhase(status.phase)
@@ -385,17 +445,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
           }
         }
       } else if ((state.over || normalizedWinner) && derivedBoard) {
-        // 调试：调用检测前
-        console.log(`[updateGameState] 准备检测5连, state.over: ${state.over}, normalizedWinner: ${normalizedWinner}, 棋盘大小: ${derivedBoard.length}x${derivedBoard[0]?.length}`)
         const detected = detectWinLineCells(derivedBoard, normalizedWinner)
         if (detected) {
-          console.log(`[updateGameState] 检测到5连，设置winLines`)
           setWinLines(detected.cells)
           if (!normalizedWinner) {
             normalizedWinner = detected.piece
           }
         } else {
-          console.log(`[updateGameState] 未检测到5连`)
           setWinLines(new Set())
         }
       } else {
@@ -489,17 +545,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
               }
             }
           } else {
-            // 调试：handleFullSync 调用检测前
-            console.log(`[handleFullSync] 准备检测5连, resolvedWinner: ${resolvedWinner}, 棋盘大小: ${boardFromCells.length}x${boardFromCells[0]?.length}`)
             const detected = detectWinLineCells(boardFromCells, resolvedWinner)
             if (detected) {
-              console.log(`[handleFullSync] 检测到5连，设置winLines`)
               setWinLines(detected.cells)
               if (!resolvedWinner) {
                 resolvedWinner = detected.piece
               }
             } else {
-              console.log(`[handleFullSync] 未检测到5连`)
               setWinLines(new Set())
             }
           }
@@ -560,6 +612,27 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
         setAiSide(String(snap.aiSide).toUpperCase())
       } else {
         setAiSide(null)
+      }
+      // 新增：座位用户ID（用于显示玩家信息，保留用于兼容）
+      if (snap.seatXUserId !== undefined) {
+        const newSeatXUserId = snap.seatXUserId || null
+        setSeatXUserId(newSeatXUserId)
+      }
+      if (snap.seatOUserId !== undefined) {
+        const newSeatOUserId = snap.seatOUserId || null
+        setSeatOUserId(newSeatOUserId)
+      }
+      
+      // 新增：用户详细信息（直接从快照中获取，不需要额外调用 API）
+      if (snap.seatXUserInfo !== undefined) {
+        setSeatXUserInfo(snap.seatXUserInfo || null)
+      }
+      if (snap.seatOUserInfo !== undefined) {
+        setSeatOUserInfo(snap.seatOUserInfo || null)
+      }
+      // 新增：房间创建时间
+      if (snap.createdAt !== undefined && snap.createdAt !== null) {
+        setRoomCreatedAt(snap.createdAt)
       }
     },
     [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
@@ -701,6 +774,11 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     isOwner,
     mode, // 'PVP' | 'PVE'
     aiSide, // 'X' | 'O' | null
+    seatXUserId, // 黑棋座位用户ID（新增：用于显示玩家信息）
+    seatOUserId, // 白棋座位用户ID（新增：用于显示玩家信息）
+    seatXUserInfo, // 黑棋座位用户详细信息
+    seatOUserInfo, // 白棋座位用户详细信息
+    roomCreatedAt, // 房间创建时间（新增）
     placeStone,
     requestResign,
     requestRestart,
