@@ -242,13 +242,8 @@ const GameRoomPage = () => {
         opponentUserId = seatXUserId
         opponentSide = 'X'
       } else if (seatXUserId && seatOUserId) {
-        // 两个座位都有用户，但 currentUserId 不匹配，可能是数据还没同步
+        // 两个座位都有用户，但 currentUserId 不匹配，可能是数据还没同步；
         // 这种情况下，暂时无法确定对手，等待 mySide 设置
-        console.log('[DEBUG-对手显示] useEffect 等待 mySide 设置', {
-          currentUserId,
-          seatXUserId,
-          seatOUserId,
-        })
         return
       }
     }
@@ -284,58 +279,23 @@ const GameRoomPage = () => {
       opponentSideText = mySide === 'O' ? 'Black' : 'White'
     }
     
-    console.log('[DEBUG-对手显示] GameRoomPage 更新对手信息', {
-      mySide,
-      opponentSide,
-      mode,
-      normalizedMode,
-      seatXUserId,
-      seatOUserId,
-      opponentUserId,
-      currentUserId,
-      isOpponentSelf,
-      shouldShowOpponent,
-      opponentName,
-      opponentSideBadgeClass,
-      opponentSideText,
-      '最终显示': opponentName,
-      'opponentPlayer.name 将被设置为': opponentName,
-    })
-    
-    setOpponentPlayer((prev) => {
+    setOpponentPlayer((prev) => ({
       // 确保总是创建新对象，避免引用问题
-      const updated = {
-        ...prev,
-        sideBadgeClass: opponentSideBadgeClass,
-        sideText: opponentSideText,
-        name: opponentName,
-        avatar: prev.avatar || DEFAULT_AVATAR,
-        countdownText: prev.countdownText || '--',
-        countdownClass: prev.countdownClass || '',
-        countdownProgress: prev.countdownProgress ?? 0,
-        isWinner: prev.isWinner ?? false,
-        isActive: prev.isActive ?? false,
-      }
-      console.log('[DEBUG-对手显示] setOpponentPlayer 更新', {
-        prevName: prev.name,
-        newName: opponentName,
-        updatedName: updated.name,
-        '完整 updated 对象': updated,
-        'prev === DEFAULT_OPPONENT': prev === DEFAULT_OPPONENT,
-        'updated === DEFAULT_OPPONENT': updated === DEFAULT_OPPONENT,
-      })
-      return updated
-    })
+      ...prev,
+      sideBadgeClass: opponentSideBadgeClass,
+      sideText: opponentSideText,
+      name: opponentName,
+      avatar: prev.avatar || DEFAULT_AVATAR,
+      countdownText: prev.countdownText || '--',
+      countdownClass: prev.countdownClass || '',
+      countdownProgress: prev.countdownProgress ?? 0,
+      isWinner: prev.isWinner ?? false,
+      isActive: prev.isActive ?? false,
+    }))
   }, [mySide, mode, seatXUserId, seatOUserId, currentUserId])
 
-  // 调试：监听 opponentPlayer 的变化
-  useEffect(() => {
-    console.log('[DEBUG-对手显示] opponentPlayer 状态变化', {
-      name: opponentPlayer.name,
-      sideBadgeClass: opponentPlayer.sideBadgeClass,
-      sideText: opponentPlayer.sideText,
-    })
-  }, [opponentPlayer])
+  // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
+  useEffect(() => {}, [opponentPlayer])
 
   useEffect(() => {
     setStatusBar((prev) => ({
@@ -606,15 +566,6 @@ const GameRoomPage = () => {
         </div>
 
         <div className="player-panel player-right">
-          {(() => {
-            // 调试：检查传递给 PlayerCard 的 opponentPlayer 值
-            console.log('[DEBUG-对手显示] 渲染 PlayerCard 前检查 opponentPlayer', {
-              opponentPlayerName: opponentPlayer.name,
-              opponentPlayerObject: opponentPlayer,
-              'opponentPlayer === DEFAULT_OPPONENT': opponentPlayer === DEFAULT_OPPONENT,
-            })
-            return null
-          })()}
           <PlayerCard
             idPrefix="opponent"
             player={opponentPlayer}
@@ -717,17 +668,8 @@ const PlayerCard = ({
   readyButtonLabel,
   onToggleReady,
 }) => {
-  // 调试：检查 PlayerCard 接收到的 player prop
-  // 使用 useEffect 确保在每次渲染时都记录
-  useEffect(() => {
-    if (idPrefix === 'opponent') {
-      console.log('[DEBUG-对手显示] PlayerCard useEffect (opponent)', {
-        playerName: player?.name,
-        playerObject: player,
-        'player === DEFAULT_OPPONENT': player === DEFAULT_OPPONENT,
-      })
-    }
-  }, [idPrefix, player])
+  // 调试逻辑已移除，避免在控制台刷屏
+  useEffect(() => {}, [idPrefix, player])
   
   const progress = Math.max(0, Math.min(1, player.countdownProgress ?? 0))
   const dashArray = 283

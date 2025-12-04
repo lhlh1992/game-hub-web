@@ -185,12 +185,6 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     getRoomView(roomId)
       .then((snap) => {
         if (!mounted) return
-        console.log('[DEBUG-对手显示] 首屏加载房间快照', {
-          roomId: snap.roomId,
-          seatXUserId: snap.seatXUserId,
-          seatOUserId: snap.seatOUserId,
-          mode: snap.mode,
-        })
         handleFullSync(snap)
       })
       .catch((error) => {
@@ -244,12 +238,6 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       getRoomView(roomId)
         .then((snap) => {
           if (!mounted) return
-          console.log('[DEBUG-对手显示] WebSocket 连接后获取房间快照', {
-            roomId: snap.roomId,
-            seatXUserId: snap.seatXUserId,
-            seatOUserId: snap.seatOUserId,
-            mode: snap.mode,
-          })
           handleFullSync(snap)
         })
         .catch((error) => {
@@ -310,12 +298,6 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       // 统一使用 SNAPSHOT 事件更新房间全貌（包含座位、准备状态、phase 等）
       const snap = evt.payload
       if (snap) {
-        console.log('[DEBUG-对手显示] 收到 SNAPSHOT 事件', {
-          roomId: snap.roomId,
-          seatXUserId: snap.seatXUserId,
-          seatOUserId: snap.seatOUserId,
-          mode: snap.mode,
-        })
         handleFullSync(snap)
       }
     } else if (evt.type === 'TICK') {
