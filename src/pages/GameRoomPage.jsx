@@ -118,6 +118,8 @@ const GameRoomPage = () => {
     aiSide,
     seatXUserId,
     seatOUserId,
+    seatXUserInfo,
+    seatOUserInfo,
     placeStone,
     requestResign,
     requestRestart,
@@ -252,15 +254,38 @@ const GameRoomPage = () => {
     // 注意：如果对手用户ID等于当前用户ID，说明可能是数据异常，不应该显示自己
     const isOpponentSelf = opponentUserId === currentUserId
     const shouldShowOpponent = opponentUserId && !isOpponentSelf && String(opponentUserId).trim() !== ''
-    
-    // 确定显示的名字
-    // 注意：mode 可能是 null（初始状态），需要检查 snap.mode 或使用默认值
+
+    // 根据对手的落子方，拿到对应的用户信息对象（后端通过 FullSync 带过来的 UserProfileView）
+    let opponentInfo = null
+    if (opponentSide === 'X') {
+      opponentInfo = seatXUserInfo || null
+    } else if (opponentSide === 'O') {
+      opponentInfo = seatOUserInfo || null
+    } else if (!mySide) {
+      // mySide 未知时，根据 currentUserId 反推：找“不是我”的那个用户信息
+      const candX = seatXUserInfo
+      const candO = seatOUserInfo
+      if (candX && candX.userId && candX.userId !== currentUserId) {
+        opponentInfo = candX
+      } else if (candO && candO.userId && candO.userId !== currentUserId) {
+        opponentInfo = candO
+      }
+    }
+
+    // 确定显示的名字（优先昵称 -> 用户名 -> 截断的 userId）
     let opponentName = 'Waiting...'
     const normalizedMode = mode ? String(mode).toUpperCase() : null
     if (normalizedMode === 'PVE') {
       opponentName = 'AI Opponent'
     } else if (shouldShowOpponent) {
-      opponentName = `玩家 ${String(opponentUserId).substring(0, 8)}...` // 临时显示用户ID，后续可改为昵称
+      if (opponentInfo) {
+        const nick = opponentInfo.nickname && opponentInfo.nickname.trim()
+        const uname = opponentInfo.username && opponentInfo.username.trim()
+        opponentName =
+          nick || uname || `玩家 ${String(opponentUserId).substring(0, 8)}...`
+      } else {
+        opponentName = `玩家 ${String(opponentUserId).substring(0, 8)}...`
+      }
     }
     
     // 确定对手的 sideBadgeClass 和 sideText
@@ -292,7 +317,7 @@ const GameRoomPage = () => {
       isWinner: prev.isWinner ?? false,
       isActive: prev.isActive ?? false,
     }))
-  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId])
+  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo])
 
   // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
   useEffect(() => {}, [opponentPlayer])
