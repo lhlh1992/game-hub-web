@@ -907,17 +907,6 @@ const PlayerCard = ({
                 房主
               </span>
             )}
-            {showKickButton && canKick && onKick && (
-              <button
-                type="button"
-                className="player-kick-btn"
-                onClick={onKick}
-                title="踢出玩家"
-                aria-label="踢出玩家"
-              >
-                <span className="kick-icon">👢</span>
-              </button>
-            )}
           </div>
         </div>
         <div className="player-stone-wrapper">
@@ -956,6 +945,22 @@ const PlayerCard = ({
         <div className={`player-winner-label ${player.isWinner ? 'show' : ''}`} id={`${idPrefix}Winner`}>
           Winner
         </div>
+      </div>
+      {/* 踢人按钮 - 始终占据空间，避免卡片高度变化 */}
+      <div className="player-kick-action">
+        {showKickButton && canKick && onKick ? (
+          <button
+            type="button"
+            className="player-kick-text-btn"
+            onClick={onKick}
+            title="踢出玩家"
+            aria-label="踢出玩家"
+          >
+            踢出玩家
+          </button>
+        ) : (
+          <div className="player-kick-placeholder" />
+        )}
       </div>
       {(readyLabel || readyButtonLabel) && (
         <div
