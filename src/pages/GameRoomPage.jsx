@@ -114,6 +114,7 @@ const GameRoomPage = () => {
     wsConnected,
     readyStatus,
     roomPhase,
+    isOwner,
     mode,
     aiSide,
     seatXUserId,
@@ -127,7 +128,7 @@ const GameRoomPage = () => {
     requestRestart,
     toggleReady,
     requestStartGame,
-  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip, onMessage: showMessage })
+  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip, onMessage: showMessage, currentUserId })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -588,24 +589,42 @@ const GameRoomPage = () => {
         </div>
 
         <div className="game-center-panel">
-          {/* 开始游戏：居中放在棋盘上方，始终显示，根据状态禁用 */}
-          <div
-            className="start-game-bar"
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginBottom: '12px',
-            }}
-          >
-            <button
-              type="button"
-              className="btn-action btn-start"
-              onClick={requestStartGame}
-              disabled={!wsConnected || roomPhase !== 'WAITING' || !canStartGame()}
+          {/* 开始游戏：居中放在棋盘上方，仅房主可见，根据状态禁用 */}
+          {isOwner && (
+            <div
+              className="start-game-bar"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: '12px',
+              }}
             >
-              开始游戏
-            </button>
-          </div>
+              <button
+                type="button"
+                className="btn-action btn-start"
+                onClick={requestStartGame}
+                disabled={!wsConnected || roomPhase !== 'WAITING' || !canStartGame()}
+              >
+                开始游戏
+              </button>
+            </div>
+          )}
+          {/* 游戏状态提示：非房主或游戏已开始时显示 */}
+          {(!isOwner || roomPhase === 'PLAYING') && (
+            <div
+              className="game-status-bar"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: '12px',
+                padding: '8px 16px',
+                fontSize: '14px',
+                color: roomPhase === 'PLAYING' ? '#3B82F6' : '#6B7280',
+              }}
+            >
+              {roomPhase === 'PLAYING' ? '游戏进行中' : '等待房主开始游戏'}
+            </div>
+          )}
 
           <div className="board-container">
             <GomokuBoard grid={board} lastMove={lastMove} winLines={winLines} onCellClick={placeStone} />

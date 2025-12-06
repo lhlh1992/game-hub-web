@@ -136,7 +136,7 @@ const detectWinLineCells = (grid, winnerHint) => {
 
 const normalizeWinnerPiece = (value) => normalizeSide(value)
 
-export function useGomokuGame({ roomId, onForbidden, onMessage }) {
+export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId }) {
   const [board, setBoard] = useState(EMPTY_BOARD)
   const [lastMove, setLastMove] = useState(null)
   const [winLines, setWinLines] = useState(new Set())
@@ -625,8 +625,16 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       if (snap.seatOConnected !== undefined) {
         setSeatOConnected(Boolean(snap.seatOConnected))
       }
+      // 新增：房主判断
+      if (snap.ownerUserId !== undefined && snap.ownerUserId !== null) {
+        // 如果快照中有有效的 ownerUserId，则判断是否与当前用户匹配
+        setIsOwner(Boolean(currentUserId) && snap.ownerUserId === currentUserId)
+      } else {
+        // 如果 ownerUserId 为 undefined 或 null，设置为 false
+        setIsOwner(false)
+      }
     },
-    [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
+    [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white, currentUserId],
   )
 
   // 落子
