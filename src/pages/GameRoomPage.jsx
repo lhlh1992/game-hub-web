@@ -120,6 +120,8 @@ const GameRoomPage = () => {
     seatOUserId,
     seatXUserInfo,
     seatOUserInfo,
+    seatXConnected,
+    seatOConnected,
     placeStone,
     requestResign,
     requestRestart,
@@ -624,7 +626,31 @@ const GameRoomPage = () => {
           <PlayerCard
             idPrefix="opponent"
             player={opponentPlayer}
-            wsConnected={wsConnected}
+            wsConnected={(() => {
+              // 根据对手的side判断连接状态
+              // 如果对手是黑棋（X），使用seatXConnected；如果是白棋（O），使用seatOConnected
+              if (mode === 'PVE') {
+                // PVE模式：AI始终在线
+                return true
+              }
+              if (mySide === 'X') {
+                // 我是黑棋，对手是白棋
+                return seatOConnected
+              } else if (mySide === 'O') {
+                // 我是白棋，对手是黑棋
+                return seatXConnected
+              }
+              // 如果mySide未设置，根据座位信息推断
+              if (currentUserId === seatXUserId) {
+                // 我是黑棋
+                return seatOConnected
+              } else if (currentUserId === seatOUserId) {
+                // 我是白棋
+                return seatXConnected
+              }
+              // 默认返回false
+              return false
+            })()}
             readyLabel={
               isPve
                 ? 'AI 已准备'

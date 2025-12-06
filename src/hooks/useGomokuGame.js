@@ -158,6 +158,8 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
   const [seatOUserId, setSeatOUserId] = useState(null) // 白棋座位用户ID（新增：用于显示玩家信息）
   const [seatXUserInfo, setSeatXUserInfo] = useState(null) // 黑棋座位用户详细信息
   const [seatOUserInfo, setSeatOUserInfo] = useState(null) // 白棋座位用户详细信息
+  const [seatXConnected, setSeatXConnected] = useState(false) // 黑棋座位玩家连接状态
+  const [seatOConnected, setSeatOConnected] = useState(false) // 白棋座位玩家连接状态
   const [roomCreatedAt, setRoomCreatedAt] = useState(null) // 房间创建时间（新增）
 
   const roomRef = useRef(roomId)
@@ -616,6 +618,13 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
       if (snap.createdAt !== undefined && snap.createdAt !== null) {
         setRoomCreatedAt(snap.createdAt)
       }
+      // 新增：连接状态
+      if (snap.seatXConnected !== undefined) {
+        setSeatXConnected(Boolean(snap.seatXConnected))
+      }
+      if (snap.seatOConnected !== undefined) {
+        setSeatOConnected(Boolean(snap.seatOConnected))
+      }
     },
     [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white],
   )
@@ -760,6 +769,8 @@ export function useGomokuGame({ roomId, onForbidden, onMessage }) {
     seatOUserId, // 白棋座位用户ID（新增：用于显示玩家信息）
     seatXUserInfo, // 黑棋座位用户详细信息
     seatOUserInfo, // 白棋座位用户详细信息
+    seatXConnected, // 黑棋座位玩家连接状态
+    seatOConnected, // 白棋座位玩家连接状态
     roomCreatedAt, // 房间创建时间（新增）
     placeStone,
     requestResign,
