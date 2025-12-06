@@ -25,8 +25,15 @@ async function handleApiResponse(apiCall) {
  * @param {string} [options.rule='STANDARD']
  * @returns {Promise<string>} 房间 ID
  */
-export async function createRoom({ mode = 'PVE', aiPiece = 'O', rule = 'STANDARD' } = {}) {
-  const url = `/game-service/api/gomoku/new?mode=${mode}&aiPiece=${aiPiece}&rule=${rule}`
+export async function createRoom({ mode = 'PVE', aiPiece, rule = 'STANDARD' } = {}) {
+  // 构建URL参数，PVP模式下不传aiPiece
+  const params = new URLSearchParams()
+  params.append('mode', mode)
+  if (aiPiece !== undefined && aiPiece !== null) {
+    params.append('aiPiece', aiPiece)
+  }
+  params.append('rule', rule)
+  const url = `/game-service/api/gomoku/new?${params.toString()}`
   
   try {
     // 后端返回统一格式：{ code: 200, message: "success", data: "房间ID" }

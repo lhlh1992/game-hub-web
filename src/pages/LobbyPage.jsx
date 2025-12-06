@@ -26,8 +26,7 @@ const RULE_ITEMS = [
 ]
 
 const DEFAULT_CREATE_FORM = {
-  mode: 'PVP',
-  aiPiece: 'O',
+  mode: 'PVP', // 固定为PVP，不再显示模式选择
   rule: 'STANDARD',
 }
 
@@ -131,7 +130,8 @@ const LobbyPage = () => {
     setCreateSubmitting(true)
     setCreateStatus({ message: '创建中...', variant: '' })
     try {
-      const id = await createRoom({ ...createForm })
+      // 固定为PVP模式，不传aiPiece参数
+      const id = await createRoom({ mode: 'PVP', rule: createForm.rule })
       setCreateStatus({ message: `房间创建成功：${id}`, variant: 'success' })
       setTimeout(() => {
         navigate(`/game/${id}`)
@@ -219,14 +219,10 @@ const LobbyPage = () => {
                 <ModeCard
                   icon="🏠"
                   title="创建房间"
-                  description="创建私人房间，邀请好友一起对战"
+                  description="创建对战房间，邀请好友一起对战"
                   actionLabel="创建房间"
                   onAction={showCreateModal}
-                >
-                  <button type="button" className="link-btn" onClick={showEnterModal}>
-                    输入房间 ID 进入
-                  </button>
-                </ModeCard>
+                />
 
                 <ModeCard
                   icon="⚔️"
@@ -337,24 +333,6 @@ const LobbyPage = () => {
           </button>
         </div>
         <div className="modal-body">
-          <div className="form-group">
-            <label>
-              <span>模式：</span>
-              <select value={createForm.mode} onChange={(e) => setCreateForm((prev) => ({ ...prev, mode: e.target.value }))}>
-                <option value="PVE">PVE（人机）</option>
-                <option value="PVP">PVP（人人）</option>
-              </select>
-            </label>
-          </div>
-          <div className="form-group">
-            <label>
-              <span>AI执子：</span>
-              <select value={createForm.aiPiece} onChange={(e) => setCreateForm((prev) => ({ ...prev, aiPiece: e.target.value }))}>
-                <option value="O">O（白）</option>
-                <option value="X">X（黑）</option>
-              </select>
-            </label>
-          </div>
           <div className="form-group">
             <label>
               <span>规则：</span>
