@@ -152,6 +152,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
   const [readyStatus, setReadyStatus] = useState({}) // Map<userId, ready>
   const [roomPhase, setRoomPhase] = useState('WAITING') // WAITING, PLAYING, ENDED
   const [isOwner, setIsOwner] = useState(false) // 是否是房主
+  const [ownerUserId, setOwnerUserId] = useState(null) // 房主用户ID
   const [mode, setMode] = useState(null) // 'PVP' | 'PVE'
   const [aiSide, setAiSide] = useState(null) // 'X' | 'O' | null
   const [seatXUserId, setSeatXUserId] = useState(null) // 黑棋座位用户ID（新增：用于显示玩家信息）
@@ -627,10 +628,12 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
       }
       // 新增：房主判断
       if (snap.ownerUserId !== undefined && snap.ownerUserId !== null) {
+        setOwnerUserId(snap.ownerUserId)
         // 如果快照中有有效的 ownerUserId，则判断是否与当前用户匹配
         setIsOwner(Boolean(currentUserId) && snap.ownerUserId === currentUserId)
       } else {
         // 如果 ownerUserId 为 undefined 或 null，设置为 false
+        setOwnerUserId(null)
         setIsOwner(false)
       }
     },
@@ -771,6 +774,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
     readyStatus,
     roomPhase,
     isOwner,
+    ownerUserId, // 房主用户ID
     mode, // 'PVP' | 'PVE'
     aiSide, // 'X' | 'O' | null
     seatXUserId, // 黑棋座位用户ID（新增：用于显示玩家信息）

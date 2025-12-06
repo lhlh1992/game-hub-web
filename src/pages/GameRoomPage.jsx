@@ -115,6 +115,7 @@ const GameRoomPage = () => {
     readyStatus,
     roomPhase,
     isOwner,
+    ownerUserId,
     mode,
     aiSide,
     seatXUserId,
@@ -214,8 +215,9 @@ const GameRoomPage = () => {
       ...prev,
       name: user.nickname?.trim() || user.username || prev.name,
       avatar: user.avatarUrl?.trim() || DEFAULT_AVATAR,
+      isOwner: isOwner ?? false,
     }))
-  }, [user])
+  }, [user, isOwner])
 
   useEffect(() => {
     // 如果 mySide 已设置，更新自己的玩家信息
@@ -267,6 +269,9 @@ const GameRoomPage = () => {
     // 注意：如果对手用户ID等于当前用户ID，说明可能是数据异常，不应该显示自己
     const isOpponentSelf = opponentUserId === currentUserId
     const shouldShowOpponent = opponentUserId && !isOpponentSelf && String(opponentUserId).trim() !== ''
+    
+    // 判断对手是否是房主
+    const isOpponentOwner = ownerUserId && opponentUserId && ownerUserId === opponentUserId
 
     // 根据对手的落子方，拿到对应的用户信息对象（后端通过 FullSync 带过来的 UserProfileView）
     let opponentInfo = null
@@ -329,8 +334,9 @@ const GameRoomPage = () => {
       countdownProgress: prev.countdownProgress ?? 0,
       isWinner: prev.isWinner ?? false,
       isActive: prev.isActive ?? false,
+      isOwner: isOpponentOwner ?? false,
     }))
-  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo])
+  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId])
 
   // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
   useEffect(() => {}, [opponentPlayer])
@@ -572,6 +578,7 @@ const GameRoomPage = () => {
             idPrefix="self"
             player={selfPlayer}
             wsConnected={wsConnected}
+            isOwner={isOwner}
             readyLabel={selfReady ? '已准备' : '未准备'}
             readyAccent={selfReady}
             readyButtonLabel={roomPhase !== 'PLAYING' ? (selfReady ? '取消准备' : '准备') : null}
@@ -631,6 +638,7 @@ const GameRoomPage = () => {
           <PlayerCard
             idPrefix="opponent"
             player={opponentPlayer}
+            isOwner={opponentPlayer.isOwner ?? false}
             wsConnected={(() => {
               // 根据对手的side判断连接状态
               // 如果对手是黑棋（X），使用seatXConnected；如果是白棋（O），使用seatOConnected
@@ -749,6 +757,7 @@ const PlayerCard = ({
   idPrefix,
   player,
   wsConnected = false,
+  isOwner = false,
   readyLabel,
   readyAccent = false,
   readyButtonLabel,
@@ -771,8 +780,15 @@ const PlayerCard = ({
             <img id={`${idPrefix}Avatar`} src={player.avatar} alt="Avatar" />
             <div className="avatar-glow-ring" />
           </div>
-          <div className="player-name" id={`${idPrefix}Name`}>
-            {player.name}
+          <div className="player-name-wrapper">
+            <div className="player-name" id={`${idPrefix}Name`}>
+              {player.name}
+            </div>
+            {isOwner && (
+              <span className="player-owner-badge" title="房主">
+                房主
+              </span>
+            )}
           </div>
         </div>
         <div className="player-stone-wrapper">
