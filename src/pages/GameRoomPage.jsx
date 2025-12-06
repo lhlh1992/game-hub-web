@@ -589,44 +589,30 @@ const GameRoomPage = () => {
         </div>
 
         <div className="game-center-panel">
-          {/* 开始游戏：居中放在棋盘上方，仅房主可见，根据状态禁用 */}
-          {isOwner && (
-            <div
-              className="start-game-bar"
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: '12px',
-              }}
-            >
+          <div className="board-container">
+            {/* 开始游戏按钮：固定在棋盘顶部居中，仅房主可见，不影响棋盘位置 */}
+            {isOwner && roomPhase === 'WAITING' && (
               <button
                 type="button"
-                className="btn-action btn-start"
+                className="btn-start-game-fixed"
                 onClick={requestStartGame}
-                disabled={!wsConnected || roomPhase !== 'WAITING' || !canStartGame()}
+                disabled={!wsConnected || !canStartGame()}
               >
                 开始游戏
               </button>
-            </div>
-          )}
-          {/* 游戏状态提示：非房主或游戏已开始时显示 */}
-          {(!isOwner || roomPhase === 'PLAYING') && (
-            <div
-              className="game-status-bar"
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: '12px',
-                padding: '8px 16px',
-                fontSize: '14px',
-                color: roomPhase === 'PLAYING' ? '#3B82F6' : '#6B7280',
-              }}
-            >
-              {roomPhase === 'PLAYING' ? '游戏进行中' : '等待房主开始游戏'}
-            </div>
-          )}
-
-          <div className="board-container">
+            )}
+            {/* 非房主等待提示：固定在棋盘顶部居中，仅非房主可见 */}
+            {!isOwner && roomPhase === 'WAITING' && (
+              <div className="game-waiting-badge">
+                等待房主开始游戏
+              </div>
+            )}
+            {/* 游戏状态提示：固定在棋盘右上角，不影响棋盘位置 */}
+            {roomPhase === 'PLAYING' && (
+              <div className="game-status-badge">
+                游戏进行中
+              </div>
+            )}
             <GomokuBoard grid={board} lastMove={lastMove} winLines={winLines} onCellClick={placeStone} />
             <div className="board-reflection-left" />
             <div className="board-reflection-right" />
