@@ -96,13 +96,27 @@
     grid-column: 1 / -1;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
     padding: 16px 24px;
     margin-bottom: 4px; /* 减少底部间距，让棋盘更靠上 */
     position: relative;
     z-index: 10; /* 确保在对局内容上方 */
+}
+
+.game-status-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.game-status-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .status-capsule {
@@ -361,60 +375,6 @@
     width: 100%;
 }
 
-/* 踢人操作区域 - 始终占据固定高度，避免卡片高度变化 */
-.player-kick-action {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 8px;
-    margin-bottom: 4px;
-    min-height: 28px; /* 固定最小高度，确保按钮显示/隐藏时高度不变 */
-}
-
-/* 踢人文字按钮 */
-.player-kick-text-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 16px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #EF4444;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.05) 100%);
-    border: 1.5px solid rgba(239, 68, 68, 0.3);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    white-space: nowrap;
-    letter-spacing: 0.3px;
-    box-shadow: 
-        0 2px 4px rgba(239, 68, 68, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.player-kick-text-btn:hover {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.1) 100%);
-    border-color: rgba(239, 68, 68, 0.5);
-    color: #DC2626;
-    transform: translateY(-1px);
-    box-shadow: 
-        0 4px 8px rgba(239, 68, 68, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-.player-kick-text-btn:active {
-    transform: translateY(0);
-    box-shadow: 
-        0 2px 4px rgba(239, 68, 68, 0.15),
-        inset 0 1px 2px rgba(239, 68, 68, 0.2);
-}
-
-/* 踢人按钮占位符 - 确保按钮区域始终占据空间 */
-.player-kick-placeholder {
-    height: 28px; /* 与按钮高度一致 */
-    width: 1px; /* 最小宽度 */
-    visibility: hidden; /* 不可见但占据空间 */
-}
 
 /* 房主标识徽章 */
 .player-owner-badge {
@@ -1018,6 +978,290 @@
 .kicked-modal-btn:hover::before {
     width: 300px;
     height: 300px;
+}
+
+/* ============================================
+   房主控制菜单 (Host Controls)
+   ============================================ */
+.host-controls {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.host-controls-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.host-controls-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+}
+
+.host-controls-icon {
+    font-size: 18px;
+    line-height: 1;
+    color: #64748b;
+    transition: color 0.2s ease;
+}
+
+.host-controls-btn:hover .host-controls-icon {
+    color: #3B82F6;
+}
+
+.host-controls-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    padding: 8px;
+    z-index: 1000;
+    animation: menuFadeIn 0.2s ease-out;
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.host-controls-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: #334155;
+    text-align: left;
+}
+
+.host-controls-menu-item:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.08);
+    color: #1e40af;
+}
+
+.host-controls-menu-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.host-controls-menu-item-danger {
+    color: #EF4444;
+}
+
+.host-controls-menu-item-danger:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.1);
+    color: #DC2626;
+}
+
+.menu-item-icon {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.menu-item-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.menu-item-badge {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.host-controls-menu-divider {
+    height: 1px;
+    background: rgba(148, 163, 184, 0.2);
+    margin: 4px 0;
+}
+
+/* ============================================
+   踢人确认对话框
+   ============================================ */
+.kick-confirm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10003;
+    animation: overlayFadeIn 0.2s ease-out;
+}
+
+@keyframes overlayFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.kick-confirm-modal-content {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 245, 243, 0.98) 100%);
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 
+        0 20px 60px rgba(239, 68, 68, 0.25),
+        0 0 0 1px rgba(239, 68, 68, 0.15),
+        0 0 100px rgba(239, 68, 68, 0.15);
+    border: 2px solid rgba(239, 68, 68, 0.1);
+    animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.kick-confirm-modal-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.kick-confirm-modal-icon {
+    font-size: 48px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.2));
+}
+
+.kick-confirm-modal-header h3 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #EF4444;
+    text-shadow: 0 2px 4px rgba(239, 68, 68, 0.15);
+}
+
+.kick-confirm-modal-body {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.kick-confirm-modal-body p {
+    margin: 0 0 12px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #475569;
+}
+
+.kick-confirm-modal-body p strong {
+    color: #EF4444;
+    font-weight: 600;
+}
+
+.kick-confirm-modal-warning {
+    font-size: 14px;
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
+.kick-confirm-modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.kick-confirm-modal-btn {
+    padding: 10px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    min-width: 100px;
+}
+
+.kick-confirm-modal-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.kick-confirm-modal-btn-cancel {
+    background: rgba(148, 163, 184, 0.1);
+    color: #64748b;
+    border: 1.5px solid rgba(148, 163, 184, 0.3);
+}
+
+.kick-confirm-modal-btn-cancel:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(148, 163, 184, 0.2);
+}
+
+.kick-confirm-modal-btn-confirm {
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    color: #fff;
+    box-shadow: 
+        0 4px 12px rgba(239, 68, 68, 0.3),
+        0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.kick-confirm-modal-btn-confirm:hover:not(:disabled) {
+    background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 6px 16px rgba(239, 68, 68, 0.4),
+        0 0 0 1px rgba(239, 68, 68, 0.3);
 }
 
 /* ========== 左右面板完全对称 ========== */

@@ -316,17 +316,34 @@ const GameRoomPage = () => {
 
     // 确定显示的名字（优先昵称 -> 用户名 -> 截断的 userId）
     let opponentName = 'Waiting...'
+    let opponentAvatar = DEFAULT_AVATAR
     const normalizedMode = mode ? String(mode).toUpperCase() : null
     if (normalizedMode === 'PVE') {
       opponentName = 'AI Opponent'
     } else if (shouldShowOpponent) {
       if (opponentInfo) {
-        const nick = opponentInfo.nickname && opponentInfo.nickname.trim()
-        const uname = opponentInfo.username && opponentInfo.username.trim()
-        opponentName =
-          nick || uname || `玩家 ${String(opponentUserId).substring(0, 8)}...`
+        // 优先使用 nickname，其次 username，最后才使用 userId 作为后备
+        const nick = opponentInfo.nickname && String(opponentInfo.nickname).trim()
+        const uname = opponentInfo.username && String(opponentInfo.username).trim()
+        // 只有当 nickname 和 username 都为空时，才使用 userId 作为后备
+        if (nick) {
+          opponentName = nick
+        } else if (uname) {
+          opponentName = uname
+        } else {
+          // 如果 nickname 和 username 都为空，但 opponentInfo 存在，说明数据可能还没完全加载
+          // 暂时保持 'Waiting...'，等待后续数据更新
+          opponentName = 'Waiting...'
+        }
+        // 从 opponentInfo 中获取 avatar
+        if (opponentInfo.avatarUrl && String(opponentInfo.avatarUrl).trim()) {
+          opponentAvatar = String(opponentInfo.avatarUrl).trim()
+        } else if (opponentInfo.avatar && String(opponentInfo.avatar).trim()) {
+          opponentAvatar = String(opponentInfo.avatar).trim()
+        }
       } else {
-        opponentName = `玩家 ${String(opponentUserId).substring(0, 8)}...`
+        // opponentInfo 不存在，说明数据还没加载，保持 'Waiting...'
+        opponentName = 'Waiting...'
       }
     }
     
@@ -353,7 +370,7 @@ const GameRoomPage = () => {
       sideText: opponentSideText,
       name: opponentName,
       userId: opponentUserId, // 添加userId，用于踢人功能
-      avatar: prev.avatar || DEFAULT_AVATAR,
+      avatar: opponentAvatar, // 使用从 opponentInfo 中获取的 avatar
       countdownText: prev.countdownText || '--',
       countdownClass: prev.countdownClass || '',
       countdownProgress: prev.countdownProgress ?? 0,
@@ -504,30 +521,6 @@ const GameRoomPage = () => {
     return true
   }, [isOwner, mode, roomPhase, opponentPlayer.userId, opponentPlayer.name, currentUserId])
 
-  // 踢人处理函数
-  const handleKickPlayer = useCallback(async () => {
-    if (kicking) return
-    
-    // 确认弹窗
-    const confirmed = window.confirm(
-      `确认要踢出玩家 "${opponentPlayer.name}" 吗？\n\n踢出后，该玩家将无法继续游戏。`
-    )
-    if (!confirmed) return
-    
-    setKicking(true)
-    try {
-      // 从localStorage获取seatKey（如果存在）
-      const storedSeatKey = localStorage.getItem(`gomoku_seatKey_${roomId}`)
-      // 发送WebSocket消息
-      sendKick(roomId, opponentPlayer.userId, storedSeatKey)
-      // 注意：不需要手动跳转，等待后端广播SNAPSHOT更新状态
-    } catch (error) {
-      console.error('踢人失败', error)
-      window.alert(`踢人失败：${error.message || '未知错误'}`)
-    } finally {
-      setKicking(false)
-    }
-  }, [kicking, roomId, opponentPlayer.userId, opponentPlayer.name])
 
   // 关闭被踢弹窗并跳转（如果还在当前页面）
   const handleKickedModalClose = useCallback(() => {
@@ -642,10 +635,55 @@ const GameRoomPage = () => {
     [statusBar],
   )
 
+  // 踢人确认对话框状态
+  const [kickConfirmModal, setKickConfirmModal] = useState({ show: false, targetName: '', targetUserId: '' })
+
+  // 打开踢人确认对话框
+  const handleOpenKickConfirm = useCallback(() => {
+    if (!opponentPlayer.userId || opponentPlayer.name === 'Waiting...') return
+    setKickConfirmModal({
+      show: true,
+      targetName: opponentPlayer.name,
+      targetUserId: opponentPlayer.userId,
+    })
+  }, [opponentPlayer.name, opponentPlayer.userId])
+
+  // 确认踢人
+  const handleConfirmKick = useCallback(async () => {
+    if (kicking || !kickConfirmModal.targetUserId) return
+    
+    setKicking(true)
+    try {
+      const storedSeatKey = localStorage.getItem(`gomoku_seatKey_${roomId}`)
+      sendKick(roomId, kickConfirmModal.targetUserId, storedSeatKey)
+      setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
+    } catch (error) {
+      console.error('踢人失败', error)
+      window.alert(`踢人失败：${error.message || '未知错误'}`)
+    } finally {
+      setKicking(false)
+    }
+  }, [kicking, roomId, kickConfirmModal.targetUserId])
+
+  // 取消踢人确认
+  const handleCancelKick = useCallback(() => {
+    setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
+  }, [])
+
   return (
     <div className="game-room">
       <main className="game-layout">
-        <GameStatusBar status={statusBar} capsules={statusCapsules} onForbiddenTip={showForbiddenTip} />
+        <GameStatusBar 
+          status={statusBar} 
+          capsules={statusCapsules} 
+          onForbiddenTip={showForbiddenTip}
+          isOwner={isOwner}
+          mode={mode}
+          roomPhase={roomPhase}
+          canKickPlayer={canKickPlayer}
+          opponentPlayer={opponentPlayer}
+          onKickPlayer={handleOpenKickConfirm}
+        />
 
         <div className="player-panel player-left">
           <PlayerCard
@@ -746,9 +784,6 @@ const GameRoomPage = () => {
                   : `对手 ${opponentReady ? '已准备' : '未准备'}`
             }
             readyAccent={isPve || opponentReady}
-            showKickButton={isOwner && mode === 'PVP'}
-            canKick={canKickPlayer}
-            onKick={handleKickPlayer}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>
@@ -758,6 +793,13 @@ const GameRoomPage = () => {
       <VictoryModal info={victoryInfo} onClose={closeVictoryModal} />
       <MessageToast info={messageInfo} onClose={() => setMessageInfo({ show: false, text: '', type: 'error' })} />
       <KickedModal show={kickedModal.show} reason={kickedModal.reason} onClose={handleKickedModalClose} />
+      <KickConfirmModal 
+        show={kickConfirmModal.show}
+        targetName={kickConfirmModal.targetName}
+        onConfirm={handleConfirmKick}
+        onCancel={handleCancelKick}
+        disabled={kicking}
+      />
     </div>
   )
 }
@@ -799,37 +841,50 @@ const KickedModal = ({ show, reason, onClose }) => {
   )
 }
 
-const GameStatusBar = ({ status, capsules, onForbiddenTip }) => {
+const GameStatusBar = ({ status, capsules, onForbiddenTip, isOwner, mode, roomPhase, canKickPlayer, opponentPlayer, onKickPlayer }) => {
   return (
     <div className="game-status-bar">
-      {capsules.map((capsule) => (
-        <StatusCapsule key={capsule.label} label={capsule.label} value={capsule.value} valueId={capsule.valueId} />
-      ))}
-      <StatusCapsule custom>
-        <div className="status-capsule turn-indicator">
-          <span className="turn-indicator-text" id="turnIndicator">
-            {status.turnText}
-          </span>
+      <div className="game-status-bar-left">
+        {capsules.map((capsule) => (
+          <StatusCapsule key={capsule.label} label={capsule.label} value={capsule.value} valueId={capsule.valueId} />
+        ))}
+        <StatusCapsule custom>
+          <div className="status-capsule turn-indicator">
+            <span className="turn-indicator-text" id="turnIndicator">
+              {status.turnText}
+            </span>
+          </div>
+        </StatusCapsule>
+        <StatusCapsule label="Black" value={<span className="info-value side-indicator side-black-indicator">●</span>} />
+        <StatusCapsule label="White" value={<span className="info-value side-indicator side-white-indicator">○</span>} />
+        <StatusCapsule custom>
+          <div className="status-capsule timer-capsule">
+            <span className="timer-icon">⏱</span>
+            <span className="info-value" id="timer">
+              {status.timer}
+            </span>
+          </div>
+        </StatusCapsule>
+        <StatusCapsule
+          label="Status"
+          value={status.gameStatus}
+          valueId="gameStatus"
+          capsuleId="gameStatusCapsule"
+          onDoubleClick={onForbiddenTip}
+        />
+        <StatusCapsule label="Score" value={status.score} valueId="scoreInfo" className="score-capsule" />
+      </div>
+      {isOwner && (
+        <div className="game-status-bar-right">
+          <HostControls 
+            mode={mode}
+            roomPhase={roomPhase}
+            canKickPlayer={canKickPlayer}
+            opponentPlayer={opponentPlayer}
+            onKickPlayer={onKickPlayer}
+          />
         </div>
-      </StatusCapsule>
-      <StatusCapsule label="Black" value={<span className="info-value side-indicator side-black-indicator">●</span>} />
-      <StatusCapsule label="White" value={<span className="info-value side-indicator side-white-indicator">○</span>} />
-      <StatusCapsule custom>
-        <div className="status-capsule timer-capsule">
-          <span className="timer-icon">⏱</span>
-          <span className="info-value" id="timer">
-            {status.timer}
-          </span>
-        </div>
-      </StatusCapsule>
-      <StatusCapsule
-        label="Status"
-        value={status.gameStatus}
-        valueId="gameStatus"
-        capsuleId="gameStatusCapsule"
-        onDoubleClick={onForbiddenTip}
-      />
-      <StatusCapsule label="Score" value={status.score} valueId="scoreInfo" className="score-capsule" />
+      )}
     </div>
   )
 }
@@ -877,9 +932,6 @@ const PlayerCard = ({
   readyAccent = false,
   readyButtonLabel,
   onToggleReady,
-  showKickButton = false,
-  canKick = false,
-  onKick = null,
 }) => {
   // 调试逻辑已移除，避免在控制台刷屏
   useEffect(() => {}, [idPrefix, player])
@@ -945,22 +997,6 @@ const PlayerCard = ({
         <div className={`player-winner-label ${player.isWinner ? 'show' : ''}`} id={`${idPrefix}Winner`}>
           Winner
         </div>
-      </div>
-      {/* 踢人按钮 - 始终占据空间，避免卡片高度变化 */}
-      <div className="player-kick-action">
-        {showKickButton && canKick && onKick ? (
-          <button
-            type="button"
-            className="player-kick-text-btn"
-            onClick={onKick}
-            title="踢出玩家"
-            aria-label="踢出玩家"
-          >
-            踢出玩家
-          </button>
-        ) : (
-          <div className="player-kick-placeholder" />
-        )}
       </div>
       {(readyLabel || readyButtonLabel) && (
         <div
@@ -1117,6 +1153,119 @@ const MessageToast = ({ info, onClose }) => {
           {info.type === 'error' ? '⚠️' : 'ℹ️'}
         </span>
         <span className="message-toast-text">{info.text}</span>
+      </div>
+    </div>
+  )
+}
+
+// 房主控制菜单组件
+const HostControls = ({ mode, roomPhase, canKickPlayer, opponentPlayer, onKickPlayer }) => {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [menuOpen])
+
+  const handleKickClick = () => {
+    if (canKickPlayer && onKickPlayer) {
+      onKickPlayer()
+      setMenuOpen(false)
+    }
+  }
+
+  return (
+    <div className="host-controls" ref={menuRef}>
+      <button
+        type="button"
+        className="host-controls-btn"
+        onClick={() => setMenuOpen(!menuOpen)}
+        title="房间管理"
+        aria-label="房间管理"
+      >
+        <span className="host-controls-icon">⚙</span>
+      </button>
+      {menuOpen && (
+        <div className="host-controls-menu">
+          {canKickPlayer && opponentPlayer.userId && opponentPlayer.name !== 'Waiting...' && (
+            <button
+              type="button"
+              className="host-controls-menu-item host-controls-menu-item-danger"
+              onClick={handleKickClick}
+            >
+              <span className="menu-item-icon">👢</span>
+              <span className="menu-item-text">踢出玩家：{opponentPlayer.name}</span>
+            </button>
+          )}
+          <div className="host-controls-menu-divider" />
+          <button
+            type="button"
+            className="host-controls-menu-item"
+            onClick={() => {
+              setMenuOpen(false)
+              // 可以添加其他功能，如房间设置等
+            }}
+            disabled
+          >
+            <span className="menu-item-icon">⚙</span>
+            <span className="menu-item-text">房间设置</span>
+            <span className="menu-item-badge">即将推出</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 踢人确认对话框组件
+const KickConfirmModal = ({ show, targetName, onConfirm, onCancel, disabled }) => {
+  if (!show) return null
+
+  return (
+    <div 
+      className="kick-confirm-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onCancel()
+        }
+      }}
+    >
+      <div className="kick-confirm-modal-content">
+        <div className="kick-confirm-modal-header">
+          <div className="kick-confirm-modal-icon">⚠️</div>
+          <h3>确认踢出玩家</h3>
+        </div>
+        <div className="kick-confirm-modal-body">
+          <p>确定将玩家 <strong>{targetName}</strong> 踢出房间吗？</p>
+          <p className="kick-confirm-modal-warning">踢出后，该玩家将无法继续游戏。</p>
+        </div>
+        <div className="kick-confirm-modal-footer">
+          <button
+            type="button"
+            className="kick-confirm-modal-btn kick-confirm-modal-btn-cancel"
+            onClick={onCancel}
+            disabled={disabled}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            className="kick-confirm-modal-btn kick-confirm-modal-btn-confirm"
+            onClick={onConfirm}
+            disabled={disabled}
+          >
+            {disabled ? '处理中...' : '确认踢出'}
+          </button>
+        </div>
       </div>
     </div>
   )

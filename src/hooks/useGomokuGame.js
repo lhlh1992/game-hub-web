@@ -14,7 +14,7 @@ import {
   disconnectWebSocket,
   isConnected,
 } from '../services/ws/gomokuSocket.js'
-import { getRoomView } from '../services/api/gameApi.js'
+import { getRoomView, getUserInfos } from '../services/api/gameApi.js'
 
 const BOARD_SIZE = 15
 const EMPTY_BOARD = Array(BOARD_SIZE)
@@ -506,6 +506,30 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
   }, [])
 
   // 处理完整同步
+  // 兜底获取用户信息的函数（当快照中没有用户信息时调用）
+  const fetchUserInfoFallback = useCallback(
+    async (userId, seat) => {
+      if (!userId || !seat) return
+      
+      try {
+        const userInfos = await getUserInfos([userId])
+        if (userInfos && userInfos.length > 0) {
+          const userInfo = userInfos[0]
+          // 更新对应的用户信息
+          if (seat === 'X') {
+            setSeatXUserInfo(userInfo)
+          } else if (seat === 'O') {
+            setSeatOUserInfo(userInfo)
+          }
+        }
+      } catch (error) {
+        // 静默失败，不影响用户体验
+        console.warn(`获取用户信息失败 (${seat}):`, error)
+      }
+    },
+    []
+  )
+
   const handleFullSync = useCallback(
     (snap) => {
       if (!snap) {
@@ -622,12 +646,22 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
         setSeatOUserId(newSeatOUserId)
       }
       
-      // 新增：用户详细信息（直接从快照中获取，不需要额外调用 API）
+      // 新增：用户详细信息（直接从快照中获取，如果缺失则通过API兜底获取）
       if (snap.seatXUserInfo !== undefined) {
-        setSeatXUserInfo(snap.seatXUserInfo || null)
+        const newSeatXUserInfo = snap.seatXUserInfo || null
+        setSeatXUserInfo(newSeatXUserInfo)
+        // 兜底：如果快照中没有用户信息，但userId存在，则通过API获取
+        if (!newSeatXUserInfo && snap.seatXUserId) {
+          fetchUserInfoFallback(snap.seatXUserId, 'X')
+        }
       }
       if (snap.seatOUserInfo !== undefined) {
-        setSeatOUserInfo(snap.seatOUserInfo || null)
+        const newSeatOUserInfo = snap.seatOUserInfo || null
+        setSeatOUserInfo(newSeatOUserInfo)
+        // 兜底：如果快照中没有用户信息，但userId存在，则通过API获取
+        if (!newSeatOUserInfo && snap.seatOUserId) {
+          fetchUserInfoFallback(snap.seatOUserId, 'O')
+        }
       }
       // 新增：房间创建时间
       if (snap.createdAt !== undefined && snap.createdAt !== null) {
@@ -651,7 +685,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
         setIsOwner(false)
       }
     },
-    [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white, currentUserId],
+    [buildBoardFromPayload, updateGameState, updateSeriesInfo, scoreInfo.black, scoreInfo.white, currentUserId, fetchUserInfoFallback],
   )
 
   // 落子
