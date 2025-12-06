@@ -353,9 +353,48 @@
 /* 玩家名称包装器（包含名称和房主标识） */
 .player-name-wrapper {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* 踢人按钮 */
+.player-kick-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.player-kick-btn:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.player-kick-btn:active {
+    background-color: rgba(239, 68, 68, 0.2);
+}
+
+.player-kick-btn .kick-icon {
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.player-kick-btn:hover .kick-icon {
+    opacity: 1;
 }
 
 /* 房主标识徽章 */
@@ -774,6 +813,192 @@
         0 12px 40px rgba(66, 153, 225, 0.25),
         0 0 0 1px rgba(66, 153, 225, 0.3),
         0 0 60px rgba(66, 153, 225, 0.2);
+}
+
+/* ============================================
+   被踢出房间弹窗
+   ============================================ */
+.kicked-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10002;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.kicked-modal.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.kicked-modal-content {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 245, 243, 0.98) 100%);
+    border-radius: 24px;
+    padding: 40px 48px;
+    box-shadow: 
+        0 20px 60px rgba(239, 68, 68, 0.3),
+        0 0 0 1px rgba(239, 68, 68, 0.2),
+        0 0 100px rgba(239, 68, 68, 0.25);
+    text-align: center;
+    transform: scale(0.85) translateY(-30px);
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+    max-width: 420px;
+    width: 90%;
+    border: 2px solid rgba(239, 68, 68, 0.15);
+}
+
+.kicked-modal.show .kicked-modal-content {
+    transform: scale(1) translateY(0);
+}
+
+.kicked-modal-content::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
+    animation: kickedPulse 3s ease-in-out infinite;
+}
+
+@keyframes kickedPulse {
+    0%, 100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1.15) rotate(180deg);
+        opacity: 0.5;
+    }
+}
+
+.kicked-modal-icon {
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: 20px;
+    animation: kickedIconBounce 0.6s ease-out;
+    display: inline-block;
+    filter: drop-shadow(0 4px 8px rgba(239, 68, 68, 0.3));
+}
+
+@keyframes kickedIconBounce {
+    0% {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.15) rotate(0deg);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+.kicked-modal-header {
+    margin-bottom: 16px;
+}
+
+.kicked-modal-header h3 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #EF4444;
+    text-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
+    animation: kickedFadeIn 0.6s ease-out 0.2s both;
+}
+
+@keyframes kickedFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.kicked-modal-body {
+    margin-bottom: 28px;
+}
+
+.kicked-modal-body p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #64748b;
+    font-weight: 500;
+    animation: kickedFadeIn 0.6s ease-out 0.3s both;
+}
+
+.kicked-modal-footer {
+    display: flex;
+    justify-content: center;
+    animation: kickedFadeIn 0.6s ease-out 0.4s both;
+}
+
+.kicked-modal-btn {
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 
+        0 8px 20px rgba(239, 68, 68, 0.35),
+        0 0 0 1px rgba(239, 68, 68, 0.2);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.kicked-modal-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.kicked-modal-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 12px 28px rgba(239, 68, 68, 0.4),
+        0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+.kicked-modal-btn:active {
+    transform: translateY(0);
+    box-shadow: 
+        0 6px 16px rgba(239, 68, 68, 0.3),
+        0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.kicked-modal-btn:hover::before {
+    width: 300px;
+    height: 300px;
 }
 
 /* ========== 左右面板完全对称 ========== */

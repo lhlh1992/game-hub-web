@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
 import { getOngoingGame, leaveRoom } from '../services/api/gameApi.js'
+import { sendKick } from '../services/ws/gomokuSocket.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 42
@@ -129,7 +130,27 @@ const GameRoomPage = () => {
     requestRestart,
     toggleReady,
     requestStartGame,
-  } = useGomokuGame({ roomId, onForbidden: showForbiddenTip, onMessage: showMessage, currentUserId })
+  } = useGomokuGame({ 
+    roomId, 
+    onForbidden: showForbiddenTip, 
+    onMessage: showMessage, 
+    currentUserId,
+    onKicked: useCallback((event) => {
+      // 处理事件格式：可能是 { type: 'KICKED', payload: { reason: '...' } } 或 { reason: '...' }
+      let reason = '你已被房主踢出房间'
+      if (event.type === 'KICKED' && event.payload) {
+        reason = event.payload.reason || reason
+      } else if (event.reason) {
+        reason = event.reason
+      }
+      // 立即显示弹窗
+      setKickedModal({ show: true, reason })
+      // 延迟跳转，确保用户能看到弹窗（2秒后跳转）
+      setTimeout(() => {
+        navigate('/lobby', { replace: true })
+      }, 2000)
+    }, [navigate])
+  })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -143,6 +164,9 @@ const GameRoomPage = () => {
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
   const [leaving, setLeaving] = useState(false)
+  const [kicking, setKicking] = useState(false)
+  const [kickedModal, setKickedModal] = useState({ show: false, reason: '' })
+  const seatKeyRef = useRef(null)
   // 记录上一次的游戏状态，用于检测游戏结束的瞬间
   const prevGameStatusRef = useRef({ over: false, winner: null })
   // 标记是否是首次渲染（用于区分页面刷新和状态变化）
@@ -328,6 +352,7 @@ const GameRoomPage = () => {
       sideBadgeClass: opponentSideBadgeClass,
       sideText: opponentSideText,
       name: opponentName,
+      userId: opponentUserId, // 添加userId，用于踢人功能
       avatar: prev.avatar || DEFAULT_AVATAR,
       countdownText: prev.countdownText || '--',
       countdownClass: prev.countdownClass || '',
@@ -463,6 +488,55 @@ const GameRoomPage = () => {
       navigate('/lobby')
     }
   }, [leaving, navigate, refreshOngoing, roomId])
+
+  // 计算是否可以踢人
+  const canKickPlayer = useMemo(() => {
+    // 必须是房主
+    if (!isOwner) return false
+    // 必须是PVP模式
+    if (mode === 'PVE') return false
+    // 必须是WAITING状态（不能是PLAYING或ENDED）
+    if (roomPhase !== 'WAITING') return false
+    // 对手必须存在
+    if (!opponentPlayer.userId || opponentPlayer.name === 'Waiting...') return false
+    // 不能踢自己
+    if (opponentPlayer.userId === currentUserId) return false
+    return true
+  }, [isOwner, mode, roomPhase, opponentPlayer.userId, opponentPlayer.name, currentUserId])
+
+  // 踢人处理函数
+  const handleKickPlayer = useCallback(async () => {
+    if (kicking) return
+    
+    // 确认弹窗
+    const confirmed = window.confirm(
+      `确认要踢出玩家 "${opponentPlayer.name}" 吗？\n\n踢出后，该玩家将无法继续游戏。`
+    )
+    if (!confirmed) return
+    
+    setKicking(true)
+    try {
+      // 从localStorage获取seatKey（如果存在）
+      const storedSeatKey = localStorage.getItem(`gomoku_seatKey_${roomId}`)
+      // 发送WebSocket消息
+      sendKick(roomId, opponentPlayer.userId, storedSeatKey)
+      // 注意：不需要手动跳转，等待后端广播SNAPSHOT更新状态
+    } catch (error) {
+      console.error('踢人失败', error)
+      window.alert(`踢人失败：${error.message || '未知错误'}`)
+    } finally {
+      setKicking(false)
+    }
+  }, [kicking, roomId, opponentPlayer.userId, opponentPlayer.name])
+
+  // 关闭被踢弹窗并跳转（如果还在当前页面）
+  const handleKickedModalClose = useCallback(() => {
+    setKickedModal({ show: false, reason: '' })
+    // 如果还在游戏房间页面，才跳转（可能已经自动跳转了）
+    if (window.location.pathname.startsWith('/game/')) {
+      navigate('/lobby')
+    }
+  }, [navigate])
 
   const closeVictoryModal = useCallback(() => {
     setVictoryInfo((prev) => ({ ...prev, show: false }))
@@ -672,6 +746,9 @@ const GameRoomPage = () => {
                   : `对手 ${opponentReady ? '已准备' : '未准备'}`
             }
             readyAccent={isPve || opponentReady}
+            showKickButton={isOwner && mode === 'PVP'}
+            canKick={canKickPlayer}
+            onKick={handleKickPlayer}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>
@@ -680,6 +757,44 @@ const GameRoomPage = () => {
       <ForbiddenTip visible={forbiddenTipVisible} />
       <VictoryModal info={victoryInfo} onClose={closeVictoryModal} />
       <MessageToast info={messageInfo} onClose={() => setMessageInfo({ show: false, text: '', type: 'error' })} />
+      <KickedModal show={kickedModal.show} reason={kickedModal.reason} onClose={handleKickedModalClose} />
+    </div>
+  )
+}
+
+// 被踢弹窗组件 - 美化版本，参考系统风格
+const KickedModal = ({ show, reason, onClose }) => {
+  if (!show) return null
+  
+  return (
+    <div 
+      className={`kicked-modal ${show ? 'show' : ''}`}
+      onClick={(e) => {
+        // 点击遮罩层不关闭，必须点击确定按钮
+        e.stopPropagation()
+      }}
+    >
+      <div 
+        className="kicked-modal-content"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="kicked-modal-icon">👢</div>
+        <div className="kicked-modal-header">
+          <h3>你已被踢出房间</h3>
+        </div>
+        <div className="kicked-modal-body">
+          <p>{reason}</p>
+        </div>
+        <div className="kicked-modal-footer">
+          <button
+            type="button"
+            className="kicked-modal-btn"
+            onClick={onClose}
+          >
+            确定
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -762,6 +877,9 @@ const PlayerCard = ({
   readyAccent = false,
   readyButtonLabel,
   onToggleReady,
+  showKickButton = false,
+  canKick = false,
+  onKick = null,
 }) => {
   // 调试逻辑已移除，避免在控制台刷屏
   useEffect(() => {}, [idPrefix, player])
@@ -788,6 +906,17 @@ const PlayerCard = ({
               <span className="player-owner-badge" title="房主">
                 房主
               </span>
+            )}
+            {showKickButton && canKick && onKick && (
+              <button
+                type="button"
+                className="player-kick-btn"
+                onClick={onKick}
+                title="踢出玩家"
+                aria-label="踢出玩家"
+              >
+                <span className="kick-icon">👢</span>
+              </button>
             )}
           </div>
         </div>

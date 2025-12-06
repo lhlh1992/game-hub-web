@@ -248,6 +248,35 @@ export function sendStartGame(roomId, seatKey = null) {
   })
 }
 
+export function sendKick(roomId, targetUserId, seatKey = null) {
+  const client = getClient()
+  client.publish({
+    destination: '/app/gomoku.kick',
+    body: JSON.stringify({ roomId, targetUserId, seatKey }),
+  })
+}
+
+export function subscribeKicked(onKicked) {
+  const client = getClient()
+  const topic = '/user/queue/gomoku.kicked'
+
+  if (subscriptions.has(topic)) {
+    subscriptions.get(topic).unsubscribe()
+  }
+
+  const sub = client.subscribe(topic, (frame) => {
+    try {
+      const event = JSON.parse(frame.body)
+      onKicked(event)
+    } catch (error) {
+      console.error('解析被踢事件失败', error)
+    }
+  })
+
+  subscriptions.set(topic, sub)
+  return () => sub.unsubscribe()
+}
+
 export function disconnectWebSocket() {
   subscriptions.forEach((sub) => sub.unsubscribe())
   subscriptions.clear()

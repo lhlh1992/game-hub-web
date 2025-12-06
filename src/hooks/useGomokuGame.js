@@ -4,6 +4,7 @@ import {
   subscribeRoom,
   subscribeSeatKey,
   subscribeFullSync,
+  subscribeKicked,
   sendPlace,
   sendResign,
   sendRestart,
@@ -136,7 +137,7 @@ const detectWinLineCells = (grid, winnerHint) => {
 
 const normalizeWinnerPiece = (value) => normalizeSide(value)
 
-export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId }) {
+export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, onKicked }) {
   const [board, setBoard] = useState(EMPTY_BOARD)
   const [lastMove, setLastMove] = useState(null)
   const [winLines, setWinLines] = useState(new Set())
@@ -209,6 +210,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
 
     let mounted = true
     let checkInterval = null
+    let unsubscribeKicked = null
 
     const handleConnect = () => {
       if (!mounted) return
@@ -232,6 +234,15 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
         if (!mounted) return
         handleFullSync(snap)
       })
+
+      // 订阅被踢事件
+      if (onKicked) {
+        unsubscribeKicked = subscribeKicked((event) => {
+          if (!mounted) return
+          // 直接传递整个事件对象，让调用者处理
+          onKicked(event)
+        })
+      }
 
       // 发送恢复请求
       sendResume(roomId, seatKeyRef.current)
@@ -283,9 +294,12 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId })
       if (checkInterval) {
         clearInterval(checkInterval)
       }
+      if (unsubscribeKicked) {
+        unsubscribeKicked()
+      }
       disconnectWebSocket()
     }
-  }, [roomId, onMessage])
+  }, [roomId, onMessage, onKicked])
 
   // 处理房间事件
   const handleRoomEvent = useCallback((evt) => {
