@@ -132,7 +132,7 @@ const LobbyPage = () => {
     try {
       // 固定为PVP模式，不传aiPiece参数
       const id = await createRoom({ mode: 'PVP', rule: createForm.rule })
-      setCreateStatus({ message: `房间创建成功：${id}`, variant: 'success' })
+      setCreateStatus({ message: '房间创建成功', variant: 'success' })
       setTimeout(() => {
         navigate(`/game/${id}`)
       }, 500)
