@@ -139,6 +139,16 @@ const GameRoomPage = () => {
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
   const [leaving, setLeaving] = useState(false)
+  // 记录上一次的游戏状态，用于检测游戏结束的瞬间
+  const prevGameStatusRef = useRef({ over: false, winner: null })
+  // 标记是否是首次渲染（用于区分页面刷新和状态变化）
+  const isFirstRenderRef = useRef(true)
+  
+  // 当房间ID变化时，重置首次渲染标记和游戏状态记录
+  useEffect(() => {
+    isFirstRenderRef.current = true
+    prevGameStatusRef.current = { over: false, winner: null }
+  }, [roomId])
 
   useEffect(() => {
     document.title = '五子棋 - 游戏进行中'
@@ -450,17 +460,37 @@ const GameRoomPage = () => {
   }, [])
 
   useEffect(() => {
-    if (!gameStatus.over || !gameStatus.winner) {
-      setVictoryInfo((prev) => ({ ...prev, show: false }))
-      return
+    const prevOver = prevGameStatusRef.current.over
+    const prevWinner = prevGameStatusRef.current.winner
+    const currentOver = gameStatus.over
+    const currentWinner = gameStatus.winner
+    const isFirstRender = isFirstRenderRef.current
+
+    // 检测游戏状态从"未结束"变成"已结束"的瞬间
+    // 排除首次渲染时游戏已经结束的情况（页面刷新）
+    const justFinished = !isFirstRender && !prevOver && currentOver && currentWinner
+
+    // 更新上一次的状态
+    prevGameStatusRef.current = { over: currentOver, winner: currentWinner }
+    // 首次渲染后，标记为非首次
+    if (isFirstRender) {
+      isFirstRenderRef.current = false
     }
-    const winnerSide = gameStatus.winner === 'O' ? 'white' : 'black'
-    const winnerIsSelf = mySide && mySide.toUpperCase() === gameStatus.winner.toUpperCase()
-    setVictoryInfo({
-      show: true,
-      winnerName: winnerIsSelf ? selfPlayer.name : opponentPlayer.name,
-      side: winnerSide,
-    })
+
+    // 如果游戏刚结束（状态变化），显示弹出框
+    if (justFinished) {
+      const winnerSide = currentWinner === 'O' ? 'white' : 'black'
+      const winnerIsSelf = mySide && mySide.toUpperCase() === currentWinner.toUpperCase()
+      setVictoryInfo({
+        show: true,
+        winnerName: winnerIsSelf ? selfPlayer.name : opponentPlayer.name,
+        side: winnerSide,
+      })
+    } else if (!currentOver || !currentWinner) {
+      // 如果游戏未结束，隐藏弹出框
+      setVictoryInfo((prev) => ({ ...prev, show: false }))
+    }
+    // 如果游戏已经结束但不是刚结束的瞬间（包括首次渲染时已结束），不显示弹出框
   }, [gameStatus, mySide, opponentPlayer.name, selfPlayer.name])
 
   useEffect(() => {
