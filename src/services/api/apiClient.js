@@ -38,8 +38,28 @@ export async function authenticatedJsonFetch(url, options = {}) {
   })
 
   if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`HTTP ${response.status}: ${errorText}`)
+    // 尝试解析 JSON 格式的错误响应
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const errorJson = await response.json()
+        // 如果后端返回的是 ApiResponse 格式，提取 message 字段
+        if (errorJson.message) {
+          throw new Error(errorJson.message)
+        }
+        throw new Error(JSON.stringify(errorJson))
+      } catch (e) {
+        // 如果解析失败或已经抛出错误，直接抛出
+        if (e instanceof Error) {
+          throw e
+        }
+        // 如果 response.json() 失败，尝试读取文本（但此时 body 已被消费，此分支理论上不会执行）
+        throw new Error(`HTTP ${response.status}: 解析错误响应失败`)
+      }
+    } else {
+      const errorText = await response.text()
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
   }
 
   return response.json()
