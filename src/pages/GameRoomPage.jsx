@@ -143,13 +143,9 @@ const GameRoomPage = () => {
       } else if (event.reason) {
         reason = event.reason
       }
-      // 立即显示弹窗
+      // 立即显示弹窗，等待用户手动点击确认后再跳转
       setKickedModal({ show: true, reason })
-      // 延迟跳转，确保用户能看到弹窗（2秒后跳转）
-      setTimeout(() => {
-        navigate('/lobby', { replace: true })
-      }, 2000)
-    }, [navigate])
+    }, [])
   })
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
