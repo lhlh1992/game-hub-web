@@ -625,7 +625,6 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
         setRoomPhase(String(snap.phase).toUpperCase())
       }
       if (snap.readyStatus) {
-        console.log('[ready] hook handleFullSync setReadyStatus', snap.readyStatus)
         setReadyStatus(snap.readyStatus)
       }
       // 提取房间模式信息

@@ -83,7 +83,9 @@ const GameRoomPage = () => {
   const { user } = useAuth()
   const { refresh: refreshOngoing } = useOngoingGame()
   // 当前用户唯一标识（用于在 readyStatus 中取准备状态）
-  const currentUserId = user?.keycloakUserId || user?.id || user?.username || 'self'
+  // 优先使用后端下发的 userId（Keycloak sub），再用 systemUserId
+  const currentUserId =
+    user?.userId || user?.systemUserId || user?.keycloakUserId || user?.id || user?.username || 'self'
   const normalizeId = useCallback((v) => {
     if (v === undefined || v === null) return ''
     return String(v).trim().toLowerCase()
@@ -95,6 +97,7 @@ const GameRoomPage = () => {
       const idNorm = normalizeId(uid)
       if (!idNorm) return false
       return (
+        idNorm === normalizeId(user?.userId) ||
         idNorm === normalizeId(currentUserId) ||
         idNorm === normalizeId(user?.keycloakUserId) ||
         idNorm === normalizeId(user?.systemUserId) ||
@@ -488,6 +491,11 @@ const GameRoomPage = () => {
     }
   }, [readyStatus, mode, currentUserId, seatXUserId, seatOUserId])
 
+  // 点击准备/取消准备
+  const handleToggleReady = useCallback(() => {
+    toggleReady()
+  }, [toggleReady])
+
   // 计算自己与对手的准备状态，用于在左右两侧展示
   const selfReady = useMemo(() => {
     if (!readyStatus) return false
@@ -498,25 +506,6 @@ const GameRoomPage = () => {
     return matched
   }, [isSelf, readyStatus])
 
-  // 调试输出：每次 readyStatus 变化，都打印匹配结果（无论是否匹配到）
-  useEffect(() => {
-    if (!readyStatus) return
-    const entries = Object.entries(readyStatus).map(([uid, val]) => ({
-      uid,
-      val,
-      match: isSelf(uid),
-    }))
-    console.debug('[ready] snapshot', {
-      readyStatus,
-      entries,
-      currentUserId,
-      keycloakUserId: user?.keycloakUserId,
-      systemUserId: user?.systemUserId,
-      id: user?.id,
-      username: user?.username,
-      sub: user?.sub,
-    })
-  }, [readyStatus, isSelf, currentUserId, user])
   const { opponentReady, isPve } = useMemo(() => {
     // 根据真实的 mode 判断是否是 PVE
     const isPveMode = mode === 'PVE'
@@ -747,7 +736,7 @@ const GameRoomPage = () => {
             readyLabel={selfReady ? '已准备' : '未准备'}
             readyAccent={selfReady}
             readyButtonLabel={roomPhase !== 'PLAYING' ? (selfReady ? '取消准备' : '准备') : null}
-            onToggleReady={roomPhase !== 'PLAYING' ? toggleReady : null}
+            onToggleReady={roomPhase !== 'PLAYING' ? handleToggleReady : null}
           />
           <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
           <div className="leave-room-panel">
