@@ -83,9 +83,8 @@ const GameRoomPage = () => {
   const { user } = useAuth()
   const { refresh: refreshOngoing } = useOngoingGame()
   // 当前用户唯一标识（用于在 readyStatus 中取准备状态）
-  // 优先用后端下发的 userId（Keycloak sub），再回退 systemUserId/username
-  const currentUserId =
-    user?.userId || user?.systemUserId || user?.keycloakUserId || user?.id || user?.username || 'self'
+  // 与后端保持一致：优先 userId（Keycloak sub），再回退 systemUserId，最后兜底 self
+  const currentUserId = user?.userId || user?.systemUserId || 'self'
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -249,6 +248,21 @@ const GameRoomPage = () => {
         sideBadgeClass: mySide === 'O' ? 'side-white' : 'side-black',
         sideText: mySide === 'O' ? 'White' : 'Black',
       }))
+    } else if (!mySide && currentUserId) {
+      // 兜底：如果 mySide 还没下发，根据座位判断自己是黑/白，避免默认显示黑棋
+      if (currentUserId === seatXUserId) {
+        setSelfPlayer((prev) => ({
+          ...prev,
+          sideBadgeClass: 'side-black',
+          sideText: 'Black',
+        }))
+      } else if (currentUserId === seatOUserId) {
+        setSelfPlayer((prev) => ({
+          ...prev,
+          sideBadgeClass: 'side-white',
+          sideText: 'White',
+        }))
+      }
     }
     
     // 根据座位用户ID和模式确定对手信息
