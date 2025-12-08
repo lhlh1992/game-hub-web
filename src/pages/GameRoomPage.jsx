@@ -83,31 +83,9 @@ const GameRoomPage = () => {
   const { user } = useAuth()
   const { refresh: refreshOngoing } = useOngoingGame()
   // 当前用户唯一标识（用于在 readyStatus 中取准备状态）
-  // 优先使用后端下发的 userId（Keycloak sub），再用 systemUserId
+  // 优先用后端下发的 userId（Keycloak sub），再回退 systemUserId/username
   const currentUserId =
     user?.userId || user?.systemUserId || user?.keycloakUserId || user?.id || user?.username || 'self'
-  const normalizeId = useCallback((v) => {
-    if (v === undefined || v === null) return ''
-    return String(v).trim().toLowerCase()
-  }, [])
-
-  // 前端匹配 readyStatus 时，直接用 readyStatus 的 key 与用户的各类 ID 比较，避免字段不一致
-  const isSelf = useCallback(
-    (uid) => {
-      const idNorm = normalizeId(uid)
-      if (!idNorm) return false
-      return (
-        idNorm === normalizeId(user?.userId) ||
-        idNorm === normalizeId(currentUserId) ||
-        idNorm === normalizeId(user?.keycloakUserId) ||
-        idNorm === normalizeId(user?.systemUserId) ||
-        idNorm === normalizeId(user?.id) ||
-        idNorm === normalizeId(user?.username) ||
-        idNorm === normalizeId(user?.sub)
-      )
-    },
-    [currentUserId, user, normalizeId],
-  )
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -499,12 +477,8 @@ const GameRoomPage = () => {
   // 计算自己与对手的准备状态，用于在左右两侧展示
   const selfReady = useMemo(() => {
     if (!readyStatus) return false
-    const matched = Object.entries(readyStatus).some(([uid, val]) => {
-      const match = val && isSelf(uid)
-      return match
-    })
-    return matched
-  }, [isSelf, readyStatus])
+    return !!readyStatus[currentUserId]
+  }, [readyStatus, currentUserId])
 
   const { opponentReady, isPve } = useMemo(() => {
     // 根据真实的 mode 判断是否是 PVE
