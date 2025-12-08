@@ -84,6 +84,27 @@ const GameRoomPage = () => {
   const { refresh: refreshOngoing } = useOngoingGame()
   // 当前用户唯一标识（用于在 readyStatus 中取准备状态）
   const currentUserId = user?.keycloakUserId || user?.id || user?.username || 'self'
+  const normalizeId = useCallback((v) => {
+    if (v === undefined || v === null) return ''
+    return String(v).trim().toLowerCase()
+  }, [])
+
+  // 前端匹配 readyStatus 时，直接用 readyStatus 的 key 与用户的各类 ID 比较，避免字段不一致
+  const isSelf = useCallback(
+    (uid) => {
+      const idNorm = normalizeId(uid)
+      if (!idNorm) return false
+      return (
+        idNorm === normalizeId(currentUserId) ||
+        idNorm === normalizeId(user?.keycloakUserId) ||
+        idNorm === normalizeId(user?.systemUserId) ||
+        idNorm === normalizeId(user?.id) ||
+        idNorm === normalizeId(user?.username) ||
+        idNorm === normalizeId(user?.sub)
+      )
+    },
+    [currentUserId, user, normalizeId],
+  )
 
   const [statusBar, setStatusBar] = useState(DEFAULT_STATUS)
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
@@ -380,17 +401,26 @@ const GameRoomPage = () => {
   useEffect(() => {}, [opponentPlayer])
 
   useEffect(() => {
+    const statusText =
+      roomPhase === 'WAITING'
+        ? 'Waiting'
+        : roomPhase === 'PLAYING'
+          ? 'Playing'
+          : roomPhase === 'ENDED'
+            ? 'Finished'
+            : gameStatus?.label ?? DEFAULT_STATUS.gameStatus
+
     setStatusBar((prev) => ({
       ...prev,
       turnText: sideToMove === 'O' ? 'White to play' : 'Black to play',
       current: sideToMove === 'O' ? 'White' : 'Black',
       round: roundInfo?.round ?? prev.round,
       score: `${scoreInfo?.black ?? 0}:${scoreInfo?.white ?? 0}`,
-      gameStatus: gameStatus?.label ?? prev.gameStatus,
+      gameStatus: statusText,
     }))
     setSelfPlayer((prev) => ({ ...prev, isActive: sideToMove !== 'O' }))
     setOpponentPlayer((prev) => ({ ...prev, isActive: sideToMove === 'O' }))
-  }, [gameStatus, roundInfo, scoreInfo, sideToMove])
+  }, [gameStatus, roomPhase, roundInfo, scoreInfo, sideToMove])
 
   const handleSendChat = useCallback(
     (text) => {
@@ -459,7 +489,34 @@ const GameRoomPage = () => {
   }, [readyStatus, mode, currentUserId, seatXUserId, seatOUserId])
 
   // 计算自己与对手的准备状态，用于在左右两侧展示
-  const selfReady = !!readyStatus?.[currentUserId]
+  const selfReady = useMemo(() => {
+    if (!readyStatus) return false
+    const matched = Object.entries(readyStatus).some(([uid, val]) => {
+      const match = val && isSelf(uid)
+      return match
+    })
+    return matched
+  }, [isSelf, readyStatus])
+
+  // 调试输出：每次 readyStatus 变化，都打印匹配结果（无论是否匹配到）
+  useEffect(() => {
+    if (!readyStatus) return
+    const entries = Object.entries(readyStatus).map(([uid, val]) => ({
+      uid,
+      val,
+      match: isSelf(uid),
+    }))
+    console.debug('[ready] snapshot', {
+      readyStatus,
+      entries,
+      currentUserId,
+      keycloakUserId: user?.keycloakUserId,
+      systemUserId: user?.systemUserId,
+      id: user?.id,
+      username: user?.username,
+      sub: user?.sub,
+    })
+  }, [readyStatus, isSelf, currentUserId, user])
   const { opponentReady, isPve } = useMemo(() => {
     // 根据真实的 mode 判断是否是 PVE
     const isPveMode = mode === 'PVE'

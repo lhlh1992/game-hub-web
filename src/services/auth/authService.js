@@ -312,6 +312,41 @@ export async function getUserInfo() {
 
 async function fetchSystemUserProfile(token) {
   try {
+    // 优先使用完整信息接口
+    const res = await fetch('/system-service/api/users/me/profile', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (res.status === 401) {
+      handleAuthExpiredResponse(res, '/system-service/api/users/me/profile 返回 401')
+      return null
+    }
+
+    if (!res.ok) {
+      // 如果完整信息接口失败，尝试基础信息接口
+      return await fetchSystemUserProfileBasic(token)
+    }
+
+    const body = await res.json()
+    const data = body?.data || body
+    if (data) {
+      if (!data.nickname && data.username) {
+        data.nickname = data.username
+      }
+      return data
+    }
+  } catch (error) {
+    console.error('fetchSystemUserProfile error', error)
+    // 失败时尝试基础接口
+    return await fetchSystemUserProfileBasic(token)
+  }
+  return null
+}
+
+async function fetchSystemUserProfileBasic(token) {
+  try {
     const res = await fetch('/system-service/api/users/me', {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -336,7 +371,7 @@ async function fetchSystemUserProfile(token) {
       return data
     }
   } catch (error) {
-    console.error('fetchSystemUserProfile error', error)
+    console.error('fetchSystemUserProfileBasic error', error)
   }
   return null
 }

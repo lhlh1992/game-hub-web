@@ -143,9 +143,9 @@ const ProfileDrawer = ({ open, onClose, displayName, username, avatarUrl, onLogo
           <button type="button" className="profile-drawer__action">
             消息中心
           </button>
-          <button type="button" className="profile-drawer__action">
+          <Link to="/profile" className="profile-drawer__action" onClick={onClose}>
             个人资料
-          </button>
+          </Link>
           <button type="button" className="profile-drawer__action" onClick={onLogout}>
             退出登录
           </button>
