@@ -451,6 +451,7 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
   const navigate = useNavigate()
   const isEmpty = !rooms || rooms.length === 0
   const [joiningRoomId, setJoiningRoomId] = useState(null)
+  const [joinError, setJoinError] = useState(null)
 
   const handleJoin = async (room) => {
     // 房主不能点击（按钮已置灰，这里做双重保护）
@@ -471,7 +472,7 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
       navigate(`/game/${room.id}`)
     } catch (error) {
       console.error('加入房间失败', error)
-      window.alert(`加入房间失败：${error.message}`)
+      setJoinError(error.message || '加入房间失败')
     } finally {
       setJoiningRoomId(null)
     }
@@ -479,6 +480,61 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
 
   return (
     <aside className="room-list-panel">
+      {joinError && (
+        <div
+          className="join-error-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              width: '360px',
+              borderRadius: '20px',
+              padding: '24px 28px',
+              background: 'linear-gradient(145deg, rgba(255,255,255,0.9), rgba(245,248,255,0.9))',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.18)',
+              color: '#1f2a44',
+              fontFamily: '"Inter","PingFang SC",sans-serif',
+            }}
+          >
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#111827' }}>
+              无法加入房间
+            </div>
+            <div style={{ fontSize: '14px', lineHeight: 1.6, color: '#4b5563', marginBottom: '18px' }}>
+              {joinError}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setJoinError(null)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: '#111827',
+                  color: '#fff',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px rgba(17,24,39,0.12)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
+                onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="room-list-header">
         <div>
           <h2 className="room-list-title">在线房间列表</h2>
