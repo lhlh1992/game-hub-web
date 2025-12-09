@@ -19,6 +19,11 @@ export default defineConfig({
         changeOrigin: true,
         ws: true, // 支持 WebSocket
       },
+      '/chat-service': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true, // 聊天 WS 也需要代理
+      },
       '/system-service': {
         target: 'http://localhost:8080',
         changeOrigin: true,

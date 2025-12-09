@@ -6,6 +6,7 @@ import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
 import { getOngoingGame, leaveRoom } from '../services/api/gameApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
+import { useChatRoomWs } from '../hooks/useChatRoomWs.js'
 import { ROOM_MESSAGES } from '../i18n/index.js'
 
 const BOARD_SIZE = 15
@@ -160,6 +161,7 @@ const GameRoomPage = () => {
   }, [roomId])
   const [systemMessages, setSystemMessages] = useState(systemBootstrapMessages)
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
+  const [chatError, setChatError] = useState(null)
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
   const [leaving, setLeaving] = useState(false)
   const [kicking, setKicking] = useState(false)
@@ -227,11 +229,33 @@ const GameRoomPage = () => {
     }
   }, [systemLogs])
 
+  // 房间聊天：独立 WS 连接（并行于游戏 WS）
+  const { connected: chatConnected, error: chatWsError, send: sendChatWs } = useChatRoomWs({
+    roomId,
+    onMessage: (evt) => {
+      const { senderId, content, timestamp } = evt || {}
+      const isSelf = senderId && senderId === currentUserId
+      const type = isSelf ? 'player1' : 'player2'
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: crypto?.randomUUID?.() || String(Date.now()),
+          type,
+          text: `${senderId || 'Unknown'}: ${content || ''}`,
+          timestamp,
+        },
+      ])
+    },
+  })
+
   useEffect(() => {
-    if (liveChatMessages?.length) {
-      setChatHistory((prev) => [...prev, ...liveChatMessages])
+    if (chatWsError) {
+      console.error('Chat WebSocket 错误', chatWsError)
+      setChatError(chatWsError)
+    } else {
+      setChatError(null)
     }
-  }, [liveChatMessages])
+  }, [chatWsError])
 
   useEffect(() => {
     if (!user) return
@@ -440,21 +464,24 @@ const GameRoomPage = () => {
   const handleSendChat = useCallback(
     (text) => {
       const trimmed = text.trim()
-      if (!trimmed) {
-        return
-      }
-      const messageType = selfPlayer.sideBadgeClass === 'side-black' ? 'player1' : 'player2'
-      const displayName = selfPlayer.name || 'Player'
-      setChatMessages((prev) => [
+      if (!trimmed || !roomId) return
+      const displayName = selfPlayer.name || 'Me'
+      // 先本地追加，提升体验
+      setChatHistory((prev) => [
         ...prev,
         {
           id: crypto?.randomUUID?.() || String(Date.now()),
-          type: messageType,
+          type: 'player1',
           text: `${displayName}: ${trimmed}`,
         },
       ])
+      try {
+        sendChatWs(trimmed)
+      } catch (err) {
+        console.error('发送房间聊天失败', err)
+      }
     },
-    [selfPlayer],
+    [roomId, selfPlayer, sendChatWs],
   )
 
   const handleResign = useCallback(() => {
@@ -749,7 +776,7 @@ const GameRoomPage = () => {
             readyButtonLabel={roomPhase !== 'PLAYING' ? (selfReady ? '取消准备' : '准备') : null}
             onToggleReady={roomPhase !== 'PLAYING' ? handleToggleReady : null}
           />
-          <GameChatPanel messages={chatHistory} onSend={handleSendChat} />
+          <GameChatPanel messages={chatHistory} onSend={handleSendChat} chatConnected={chatConnected} chatError={chatError} />
           <div className="leave-room-panel">
             <span className="leave-arrow" aria-hidden="true">
               ←
@@ -1094,7 +1121,7 @@ const PlayerCard = ({
   )
 }
 
-const GameChatPanel = ({ messages, onSend }) => {
+const GameChatPanel = ({ messages, onSend, chatConnected, chatError }) => {
   const [input, setInput] = useState('')
   const endRef = useRef(null)
 
@@ -1119,6 +1146,8 @@ const GameChatPanel = ({ messages, onSend }) => {
     <div className="game-chat-panel">
       <div className="game-chat-header">
         <span className="game-chat-title">GAME CHAT</span>
+        <span className={`chat-conn-dot ${chatConnected ? 'ok' : 'bad'}`}>{chatConnected ? '●' : '○'}</span>
+        {chatError && <span className="chat-error">WS错误</span>}
       </div>
       <div className="game-chat-messages" id="gameChatMessages">
         {messages.map((msg) => (

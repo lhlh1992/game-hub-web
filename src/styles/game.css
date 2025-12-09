@@ -1,3 +1,21 @@
+
+/* Chat WS 状态提示 */
+.chat-conn-dot {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #aaa;
+}
+.chat-conn-dot.ok {
+  color: #2ecc71;
+}
+.chat-conn-dot.bad {
+  color: #e74c3c;
+}
+.chat-error {
+  margin-left: 6px;
+  color: #e74c3c;
+  font-size: 12px;
+}
 /**
  * 五子棋对局页面 - 现代高级国际化设计
  * 风格：专业竞技感 + 现代Web应用 + 国际化棋牌
