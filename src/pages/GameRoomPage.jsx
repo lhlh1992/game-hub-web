@@ -4,7 +4,7 @@ import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
-import { getOngoingGame, leaveRoom } from '../services/api/gameApi.js'
+import { getOngoingGame, leaveRoom, getUserInfo } from '../services/api/gameApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
 import { useChatRoomWs } from '../hooks/useChatRoomWs.js'
 import { ROOM_MESSAGES } from '../i18n/index.js'
@@ -28,13 +28,7 @@ const STAR_POINTS = [
 
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 
-const INITIAL_CHAT_MESSAGES = [
-  { id: 'msg-1', type: 'player1', text: 'Player1: Good luck!' },
-  { id: 'msg-2', type: 'player2', text: 'Player2: Thanks, you too!' },
-  { id: 'msg-3', type: 'player1', text: 'Player1: Nice move!' },
-  { id: 'msg-4', type: 'player2', text: "Player2: Let's see what happens" },
-  { id: 'msg-5', type: 'system', text: 'System: Game started' },
-]
+const INITIAL_CHAT_MESSAGES = []
 
 const INITIAL_SYSTEM_MESSAGES = [
   { id: 'sys-1', text: 'Game started' },
@@ -92,9 +86,33 @@ const GameRoomPage = () => {
   const [selfPlayer, setSelfPlayer] = useState(DEFAULT_SELF_PLAYER)
   // 使用函数初始化，确保每次都是新对象
   const [opponentPlayer, setOpponentPlayer] = useState(() => ({ ...DEFAULT_OPPONENT }))
-  const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
+  // 本地缓存房间内涉及的用户档案（包含昵称/头像等），优先用于聊天显示
+  const [userInfoCache, setUserInfoCache] = useState({})
+  const pendingUserFetch = useRef(new Set())
   const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
   const [messageInfo, setMessageInfo] = useState({ show: false, text: '', type: 'error' })
+  // 批量写入用户档案缓存（忽略空值），用于聊天展示兜底
+  const upsertUserInfos = useCallback((infos) => {
+    if (!infos || !Array.isArray(infos)) return
+    setUserInfoCache((prev) => {
+      const next = { ...prev }
+      infos.forEach((info) => {
+        if (info && (info.userId || info.systemUserId)) {
+          // 主键：userId（Keycloak sub）
+          if (info.userId) {
+            next[info.userId] = { ...next[info.userId], ...info }
+          }
+          // 兼容 systemUserId 作为次键，便于 senderId/systemUserId 混用场景兜底
+          if (info.systemUserId) {
+            const sysId = String(info.systemUserId)
+            next[sysId] = { ...next[sysId], ...info }
+          }
+        }
+      })
+      return next
+    })
+  }, [])
+
   const showForbiddenTip = useCallback(() => {
     setForbiddenTipVisible(true)
     window.setTimeout(() => setForbiddenTipVisible(false), 2000)
@@ -150,6 +168,34 @@ const GameRoomPage = () => {
       setKickedModal({ show: true, reason })
     }, [])
   })
+  // 根据 senderId / senderName 解析展示名：senderName > 本地缓存 > 座位信息 > senderId
+  const resolveDisplayName = useCallback(
+    (senderId, senderName) => {
+      if (senderName) return senderName
+      const key = senderId ? String(senderId) : null
+      const cachedProfile = key ? userInfoCache[key] : null
+      if (cachedProfile) {
+        return cachedProfile.nickname?.trim() || cachedProfile.username?.trim() || key
+      }
+      // 兜底：直接查当前座位信息，避免缓存缺失时显示纯 ID
+      const candidates = [seatXUserInfo, seatOUserInfo]
+      for (const info of candidates) {
+        if (!info) continue
+        const userIdMatch = info.userId && String(info.userId) === key
+        const sysIdMatch = info.systemUserId && String(info.systemUserId) === key
+        if (userIdMatch || sysIdMatch) {
+          return (
+            info.nickname?.trim() ||
+            info.username?.trim() ||
+            (info.userId ? String(info.userId) : null) ||
+            key
+          )
+        }
+      }
+      return key || 'Unknown'
+    },
+    [seatOUserInfo, seatXUserInfo, userInfoCache],
+  )
   const systemBootstrapMessages = useMemo(() => {
     if (!roomId) {
       return INITIAL_SYSTEM_MESSAGES
@@ -162,6 +208,39 @@ const GameRoomPage = () => {
   const [systemMessages, setSystemMessages] = useState(systemBootstrapMessages)
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [chatError, setChatError] = useState(null)
+
+  // 懒加载用户档案：若收到消息只有 senderId，没有名字，则拉取后端并刷新已收到的消息显示名
+  const ensureUserProfile = useCallback(
+    async (userId) => {
+      if (!userId) return
+      const key = String(userId)
+      if (pendingUserFetch.current.has(key)) return
+      pendingUserFetch.current.add(key)
+      try {
+        const info = await getUserInfo(key)
+        if (info && info.userId) {
+          upsertUserInfos([info])
+          const newName = resolveDisplayName(key, null)
+          setChatHistory((prev) =>
+            prev.map((msg) =>
+              msg.senderId && String(msg.senderId) === key
+                ? {
+                    ...msg,
+                    senderName: newName,
+                    text: `${newName}: ${msg.contentRaw ?? ''}`,
+                  }
+                : msg,
+            ),
+          )
+        }
+      } catch (e) {
+        console.warn('懒加载用户档案失败', key, e)
+      } finally {
+        pendingUserFetch.current.delete(key)
+      }
+    },
+    [resolveDisplayName, upsertUserInfos],
+  )
   const [victoryInfo, setVictoryInfo] = useState({ show: false, winnerName: '-', side: 'black' })
   const [leaving, setLeaving] = useState(false)
   const [kicking, setKicking] = useState(false)
@@ -191,7 +270,9 @@ const GameRoomPage = () => {
       return
     }
     refreshOngoing?.()
-  }, [refreshOngoing, roomId])
+    // 进入房间时，写入房间座位的用户档案，避免缓存缺失导致聊天显示 userId
+    upsertUserInfos([seatXUserInfo, seatOUserInfo])
+  }, [refreshOngoing, roomId, seatXUserInfo, seatOUserInfo, upsertUserInfos])
 
   useEffect(() => {
     if (!roomId) {
@@ -229,19 +310,32 @@ const GameRoomPage = () => {
     }
   }, [systemLogs])
 
+  // 将座位用户档案写入前端缓存，便于聊天/展示兜底（包含昵称、头像等）
+  useEffect(() => {
+    upsertUserInfos([seatXUserInfo, seatOUserInfo])
+  }, [seatXUserInfo, seatOUserInfo, upsertUserInfos])
+
   // 房间聊天：独立 WS 连接（并行于游戏 WS）
   const { connected: chatConnected, error: chatWsError, send: sendChatWs } = useChatRoomWs({
     roomId,
     onMessage: (evt) => {
-      const { senderId, content, timestamp } = evt || {}
+      const { senderId, senderName, content, timestamp } = evt || {}
       const isSelf = senderId && senderId === currentUserId
       const type = isSelf ? 'player1' : 'player2'
+      const displayName = resolveDisplayName(senderId, senderName)
+      if (senderId && (!senderName || displayName === String(senderId))) {
+        // 缺失展示名时触发懒加载档案
+        ensureUserProfile(senderId)
+      }
       setChatHistory((prev) => [
         ...prev,
         {
           id: crypto?.randomUUID?.() || String(Date.now()),
           type,
-          text: `${senderId || 'Unknown'}: ${content || ''}`,
+          senderId: senderId ? String(senderId) : undefined,
+          senderName: displayName,
+          contentRaw: content || '',
+          text: `${displayName}: ${content || ''}`,
           timestamp,
         },
       ])
@@ -265,7 +359,11 @@ const GameRoomPage = () => {
       avatar: user.avatarUrl?.trim() || DEFAULT_AVATAR,
       isOwner: isOwner ?? false,
     }))
-  }, [user, isOwner])
+    // 缓存当前用户完整档案，便于聊天/头像展示兜底
+    if (user?.userId) {
+      upsertUserInfos([user])
+    }
+  }, [user, isOwner, upsertUserInfos])
 
   useEffect(() => {
     // 如果 mySide 已设置，更新自己的玩家信息

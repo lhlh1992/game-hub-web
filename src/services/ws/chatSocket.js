@@ -9,8 +9,10 @@ const subscriptions = new Map()
 const isDevEnv = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV
 
 function logWs(...args) {
-  const logger = isDevEnv ? console.debug : console.info
-  logger('[CHAT-WS]', ...args)
+  // 生产默认静默；如需调试可改为 console.log
+  if (typeof window !== 'undefined' && window.__CHAT_WS_DEBUG__) {
+    console.log('[CHAT-WS]', ...args)
+  }
 }
 
 function logStompError(error) {
@@ -111,7 +113,14 @@ export async function connectChatWebSocket(callbacks = {}) {
 }
 
 export function subscribeRoomChat(roomId, onEvent) {
-  const client = getClient()
+  logWs('订阅房间', roomId)
+  let client
+  try {
+    client = getClient()
+  } catch (e) {
+    console.error('[CHAT-WS] 订阅失败，连接未建立', e)
+    throw e
+  }
   const topic = `/topic/chat.room.${roomId}`
   if (subscriptions.has(topic)) {
     subscriptions.get(topic).unsubscribe()
@@ -135,7 +144,14 @@ export function subscribeRoomChat(roomId, onEvent) {
 }
 
 export function sendRoomChat(roomId, content, clientOpId) {
-  const client = getClient()
+  let client
+  try {
+    client = getClient()
+  } catch (e) {
+    console.error('[CHAT-WS] 发送失败，连接未建立', e)
+    throw e
+  }
+  logWs('发送房间消息', { roomId, content })
   client.publish({
     destination: '/app/chat.room.send',
     body: JSON.stringify({

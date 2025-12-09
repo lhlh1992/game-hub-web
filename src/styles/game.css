@@ -1514,8 +1514,9 @@
     width: auto; /* 改为auto，与玩家卡片保持一致 */
     min-width: 300px; /* 与玩家卡片最小宽度一致 */
     max-width: 330px; /* 与玩家卡片最大宽度一致 */
-    min-height: 400px;
-    max-height: calc(100vh - 500px); /* 限制最大高度，保持平衡 */
+    height: 420px; /* 固定高度，消息多时内部滚动 */
+    min-height: 420px;
+    max-height: 420px;
     display: flex;
     flex-direction: column;
     background: rgba(255, 255, 255, 0.6); /* 轻量背景，保持风格一致 */

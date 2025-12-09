@@ -20,16 +20,23 @@ export function useChatRoomWs({ roomId, onMessage }) {
       onConnect: () => {
         if (cancelled) return
         setConnected(true)
-        unsubRef.current = subscribeRoomChat(roomId, (evt) => onMessage?.(evt))
+        console.log('[chat-service][room] connected, subscribing', roomId)
+        unsubRef.current = subscribeRoomChat(roomId, (evt) => {
+          // Debug: mark messages coming from chat-service room channel
+          console.log('[chat-service][room] hook received', roomId, evt)
+          onMessage?.(evt)
+        })
       },
       onDisconnect: () => {
         if (cancelled) return
         setConnected(false)
+        console.log('[chat-service][room] disconnected', roomId)
       },
       onError: (err) => {
         if (cancelled) return
         setError(err)
         setConnected(false)
+        console.error('[chat-service][room] connect error', roomId, err)
       },
     })
     return () => {
