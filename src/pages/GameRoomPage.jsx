@@ -138,7 +138,7 @@ const GameRoomPage = () => {
     currentUserId,
     onKicked: useCallback((event) => {
       // 处理事件格式：可能是 { type: 'KICKED', payload: { reason: '...' } } 或 { reason: '...' }
-      let reason = '你已被房主踢出房间'
+      let reason = '可返回大厅加入其他房间或创建新房间'
       if (event.type === 'KICKED' && event.payload) {
         reason = event.payload.reason || reason
       } else if (event.reason) {
@@ -164,6 +164,8 @@ const GameRoomPage = () => {
   const [kicking, setKicking] = useState(false)
   const [kickedModal, setKickedModal] = useState({ show: false, reason: '' })
   const seatKeyRef = useRef(null)
+  // 记录被踢玩家的名字，用于显示 toast
+  const kickedPlayerNameRef = useRef(null)
   // 记录上一次的游戏状态，用于检测游戏结束的瞬间
   const prevGameStatusRef = useRef({ over: false, winner: null })
   // 标记是否是首次渲染（用于区分页面刷新和状态变化）
@@ -394,6 +396,23 @@ const GameRoomPage = () => {
 
   // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
   useEffect(() => {}, [opponentPlayer])
+
+  // 检测踢人成功：当对手被移除时显示 toast
+  const prevOpponentUserIdRef = useRef(null)
+  useEffect(() => {
+    const prevUserId = prevOpponentUserIdRef.current
+    const currentUserId = opponentPlayer.userId
+    
+    // 如果之前有对手，现在对手被移除了（变成 null 或 "Waiting..."），且记录了被踢玩家名字
+    if (prevUserId && !currentUserId && kickedPlayerNameRef.current) {
+      const kickedName = kickedPlayerNameRef.current
+      showMessage(`已将 ${kickedName} 移出房间`, 'info')
+      kickedPlayerNameRef.current = null
+    }
+    
+    // 更新上一次的对手用户ID
+    prevOpponentUserIdRef.current = currentUserId
+  }, [opponentPlayer.userId, showMessage])
 
   useEffect(() => {
     const statusText =
@@ -685,15 +704,18 @@ const GameRoomPage = () => {
     setKicking(true)
     try {
       const storedSeatKey = localStorage.getItem(`gomoku_seatKey_${roomId}`)
+      // 记录被踢玩家的名字，用于后续显示 toast
+      kickedPlayerNameRef.current = kickConfirmModal.targetName
       sendKick(roomId, kickConfirmModal.targetUserId, storedSeatKey)
       setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
     } catch (error) {
       console.error('踢人失败', error)
       window.alert(`踢人失败：${error.message || '未知错误'}`)
+      kickedPlayerNameRef.current = null
     } finally {
       setKicking(false)
     }
-  }, [kicking, roomId, kickConfirmModal.targetUserId])
+  }, [kicking, roomId, kickConfirmModal.targetUserId, kickConfirmModal.targetName])
 
   // 取消踢人确认
   const handleCancelKick = useCallback(() => {
