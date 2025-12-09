@@ -1221,10 +1221,13 @@ const PlayerCard = ({
 
 const GameChatPanel = ({ messages, onSend, chatConnected, chatError }) => {
   const [input, setInput] = useState('')
-  const endRef = useRef(null)
+  const listRef = useRef(null)
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = listRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
   }, [messages])
 
   const handleSend = useCallback(() => {
@@ -1247,13 +1250,12 @@ const GameChatPanel = ({ messages, onSend, chatConnected, chatError }) => {
         <span className={`chat-conn-dot ${chatConnected ? 'ok' : 'bad'}`}>{chatConnected ? '●' : '○'}</span>
         {chatError && <span className="chat-error">WS错误</span>}
       </div>
-      <div className="game-chat-messages" id="gameChatMessages">
+      <div className="game-chat-messages" id="gameChatMessages" ref={listRef}>
         {messages.map((msg) => (
           <div key={msg.id} className={`game-chat-message ${msg.type}`}>
             {msg.text}
           </div>
         ))}
-        <div ref={endRef} />
       </div>
       <div className="game-chat-input-area">
         <input
