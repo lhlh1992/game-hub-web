@@ -2,10 +2,12 @@ import { Outlet, useLocation } from 'react-router-dom'
 import Header from './Header.jsx'
 import GlobalChat from '../chat/GlobalChat.jsx'
 import { OngoingGameProvider } from '../../contexts/OngoingGameContext.jsx'
+import { useGlobalChatWs } from '../../hooks/useGlobalChatWs.js'
 
 const AppLayout = () => {
   const location = useLocation()
   const isHomePage = location.pathname === '/'
+  useGlobalChatWs() // 登录后全局维持 chat WS
 
   return (
     <OngoingGameProvider>

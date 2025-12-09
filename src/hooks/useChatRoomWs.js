@@ -36,7 +36,7 @@ export function useChatRoomWs({ roomId, onMessage }) {
       cancelled = true
       unsubRef.current?.()
       unsubRef.current = null
-      disconnectChatWebSocket()
+      // 不主动断开全局聊天 WS，只取消房间订阅
     }
   }, [roomId, onMessage])
 

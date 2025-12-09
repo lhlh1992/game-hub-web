@@ -3,15 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 const STORAGE_KEY = 'globalChatCollapsed'
 const SYSTEM_MESSAGE = 'system'
 
-const seedMessages = [
-  { id: 1, text: '欢迎来到 GameHub！', type: SYSTEM_MESSAGE },
-  { id: 2, text: 'Player1: Good luck!', type: 'opponent' },
-  { id: 3, text: 'Player2: Thanks, have fun!', type: 'self' },
-]
-
 const GlobalChat = () => {
   const [collapsed, setCollapsed] = useState(false)
-  const [messages, setMessages] = useState(seedMessages)
+  const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const messagesEndRef = useRef(null)
 
