@@ -6,6 +6,7 @@ import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
 import { getOngoingGame, leaveRoom } from '../services/api/gameApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
+import { ROOM_MESSAGES } from '../i18n/index.js'
 
 const BOARD_SIZE = 15
 const CELL_SIZE = 42
@@ -138,7 +139,7 @@ const GameRoomPage = () => {
     currentUserId,
     onKicked: useCallback((event) => {
       // 处理事件格式：可能是 { type: 'KICKED', payload: { reason: '...' } } 或 { reason: '...' }
-      let reason = '可返回大厅加入其他房间或创建新房间'
+      let reason = ROOM_MESSAGES.KICKED_OUT_REASON
       if (event.type === 'KICKED' && event.payload) {
         reason = event.payload.reason || reason
       } else if (event.reason) {
@@ -406,7 +407,7 @@ const GameRoomPage = () => {
     // 如果之前有对手，现在对手被移除了（变成 null 或 "Waiting..."），且记录了被踢玩家名字
     if (prevUserId && !currentUserId && kickedPlayerNameRef.current) {
       const kickedName = kickedPlayerNameRef.current
-      showMessage(`已将 ${kickedName} 移出房间`, 'info')
+      showMessage(ROOM_MESSAGES.KICKED_PLAYER_SUCCESS(kickedName), 'info')
       kickedPlayerNameRef.current = null
     }
     
@@ -874,7 +875,7 @@ const KickedModal = ({ show, reason, onClose }) => {
       >
         <div className="kicked-modal-icon">👢</div>
         <div className="kicked-modal-header">
-          <h3>你已被踢出房间</h3>
+          <h3>{ROOM_MESSAGES.KICKED_OUT_TITLE}</h3>
         </div>
         <div className="kicked-modal-body">
           <p>{reason}</p>
