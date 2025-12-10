@@ -154,7 +154,7 @@ export async function getUserInfos(userIds) {
       return await handleApiResponse(post('/system-service/api/users/players/batch', userIds))
     }
   } catch (error) {
-    console.error('批量获取用户信息失败', error)
+    // 批量获取用户信息失败，静默处理
     return []
   }
 }
@@ -177,7 +177,7 @@ export async function getUserInfo(userId) {
       return await handleApiResponse(apiGet(`/system-service/api/users/players/${userId}`))
     }
   } catch (error) {
-    console.error('获取用户信息失败', error)
+    // 获取用户信息失败，静默处理
     return null
   }
 }

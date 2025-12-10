@@ -25,7 +25,7 @@ export async function getAllSessions() {
     const data = await response.json()
     return data || []
   } catch (error) {
-    console.error('获取会话信息失败', error)
+    // 获取会话信息失败，静默处理
     throw error
   }
 }

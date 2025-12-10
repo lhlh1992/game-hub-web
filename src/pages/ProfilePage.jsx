@@ -49,7 +49,7 @@ const ProfilePage = () => {
         setAvatarUrl(profile.avatarUrl || null)
       }
     } catch (error) {
-      console.error('加载用户信息失败', error)
+      // 加载用户信息失败，静默处理
       setError('加载用户信息失败: ' + error.message)
     } finally {
       setLoading(false)
@@ -89,7 +89,7 @@ const ProfilePage = () => {
       setSuccess('头像上传成功，点击保存按钮确认更新')
       setToast({ type: 'success', message: '头像已上传（待保存确认）' })
     } catch (error) {
-      console.error('上传头像失败', error)
+      // 上传头像失败，静默处理
       setError('上传头像失败: ' + error.message)
       setToast({ type: 'error', message: '上传失败：' + error.message })
     }
@@ -132,7 +132,7 @@ const ProfilePage = () => {
         fileInputRef.current.value = ''
       }
     } catch (error) {
-      console.error('更新资料失败', error)
+      // 更新资料失败，静默处理
       setError('更新资料失败: ' + error.message)
       setToast({ type: 'error', message: '更新失败：' + error.message })
     } finally {

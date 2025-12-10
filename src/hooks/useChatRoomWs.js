@@ -9,6 +9,7 @@ import { connectChatWebSocket, disconnectChatWebSocket, sendRoomChat, subscribeR
  */
 export function useChatRoomWs({ roomId, onMessage }) {
   const [connected, setConnected] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
   const [error, setError] = useState(null)
   const unsubRef = useRef(null)
 
@@ -16,27 +17,34 @@ export function useChatRoomWs({ roomId, onMessage }) {
     if (!roomId) return undefined
     let cancelled = false
     setError(null)
+    setReconnecting(false)
     connectChatWebSocket({
       onConnect: () => {
         if (cancelled) return
         setConnected(true)
-        console.log('[chat-service][room] connected, subscribing', roomId)
+        setReconnecting(false)
         unsubRef.current = subscribeRoomChat(roomId, (evt) => {
-          // Debug: mark messages coming from chat-service room channel
-          console.log('[chat-service][room] hook received', roomId, evt)
           onMessage?.(evt)
         })
       },
       onDisconnect: () => {
         if (cancelled) return
         setConnected(false)
-        console.log('[chat-service][room] disconnected', roomId)
       },
       onError: (err) => {
         if (cancelled) return
         setError(err)
         setConnected(false)
-        console.error('[chat-service][room] connect error', roomId, err)
+      },
+      onReconnecting: (attempt, delay) => {
+        if (cancelled) return
+        setReconnecting(true)
+        setConnected(false)
+      },
+      onReconnectFailed: () => {
+        if (cancelled) return
+        setReconnecting(false)
+        setError(new Error('重连失败，请刷新页面'))
       },
     })
     return () => {
@@ -52,6 +60,6 @@ export function useChatRoomWs({ roomId, onMessage }) {
     return sendRoomChat(roomId, content)
   }
 
-  return { connected, error, send }
+  return { connected, reconnecting, error, send }
 }
 

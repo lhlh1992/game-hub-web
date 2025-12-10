@@ -8,22 +8,22 @@ let stomp = null
 const subscriptions = new Map()
 const isDevEnv = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV
 
+// 自动重连配置
+let reconnectTimer = null
+let reconnectAttempts = 0
+const MAX_RECONNECT_ATTEMPTS = 10
+const INITIAL_RECONNECT_DELAY = 1000
+const MAX_RECONNECT_DELAY = 30000
+let currentCallbacks = null
+let isManualDisconnect = false
+let heartbeatCheckInterval = null // 心跳检测定时器（全局变量，用于清理）
+
 function logWs(...args) {
-  // 生产默认静默；如需调试可改为 console.log
-  if (typeof window !== 'undefined' && window.__CHAT_WS_DEBUG__) {
-    console.log('[CHAT-WS]', ...args)
-  }
+  // 控制台输出已禁用
 }
 
 function logStompError(error) {
-  if (!error) return
-  const headers = error.headers || {}
-  const message = headers.message || headers.Message || error.message
-  if (message || error.body) {
-    console.error('[CHAT-WS] 错误', message || '', error.body || '')
-  } else {
-    console.error('[CHAT-WS] 错误', error)
-  }
+  // 控制台输出已禁用
 }
 
 function isUnauthorized(error) {
@@ -49,9 +49,57 @@ function getClient() {
   return stomp
 }
 
-export async function connectChatWebSocket(callbacks = {}) {
+/**
+ * 计算重连延迟（指数退避）
+ */
+function getReconnectDelay(attempt) {
+  return Math.min(INITIAL_RECONNECT_DELAY * Math.pow(2, attempt), MAX_RECONNECT_DELAY)
+}
+
+/**
+ * 尝试自动重连
+ * @param {boolean} isInitialConnect - 是否是初始连接（初始连接不显示重连提示）
+ */
+function scheduleReconnect(isInitialConnect = false) {
+  if (isManualDisconnect) {
+    logWs('手动断开，不自动重连')
+    return
+  }
+
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    logWs('达到最大重连次数，停止重连')
+    currentCallbacks?.onReconnectFailed?.()
+    return
+  }
+
+  const delay = getReconnectDelay(reconnectAttempts)
+  reconnectAttempts++
+  logWs(`将在 ${delay}ms 后尝试第 ${reconnectAttempts} 次重连`)
+
+  // 只有在真正重连时才显示提示（不是初始连接）
+  if (!isInitialConnect) {
+    currentCallbacks?.onReconnecting?.(reconnectAttempts, delay)
+  }
+
+  reconnectTimer = setTimeout(() => {
+    if (!isManualDisconnect) {
+      logWs(`开始第 ${reconnectAttempts} 次重连`)
+      connectChatWebSocketInternal(currentCallbacks)
+    }
+  }, delay)
+}
+
+/**
+ * 内部连接方法（支持重连）
+ * @param {Object} callbacks - 回调函数
+ * @param {boolean} isInitialConnect - 是否是初始连接
+ */
+async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = false) {
   if (typeof window === 'undefined') return
   if (stomp && stomp.connected) {
+    reconnectAttempts = 0
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
     callbacks.onConnect?.()
     return
   }
@@ -65,25 +113,57 @@ export async function connectChatWebSocket(callbacks = {}) {
   }
 
   const token = await ensureAuthenticated()
-  if (!token) throw new Error('未登录')
+  if (!token) {
+    scheduleReconnect(isInitialConnect)
+    return
+  }
 
   const wsUrl = `/chat-service/ws?access_token=${encodeURIComponent(token)}`
   logWs('建立连接', { url: '/chat-service/ws' })
   socket = new SockJS(wsUrl)
   socket.onclose = (event) => {
-    if (event && event.code !== 1000) {
-      console.error('[CHAT-WS] 非正常断开', event.code, event.reason || '')
-    }
     callbacks.onDisconnect?.()
+    if (!isManualDisconnect) {
+      scheduleReconnect(false) // 此时不是初始连接
+    }
+  }
+  socket.onerror = (error) => {
+    logWs('SockJS 错误', error)
+    // SockJS 错误通常意味着连接问题，立即触发断开检测
+    if (!isManualDisconnect && socket.readyState === SockJS.CLOSED) {
+      callbacks.onDisconnect?.()
+      scheduleReconnect(false) // 此时不是初始连接
+    }
   }
 
   stomp = Stomp.over(socket)
-  stomp.debug = () => {}
+  stomp.debug = (str) => {
+    // 心跳相关日志：每 10 秒会看到心跳消息
+    if (str && (str.includes('heartbeat') || str.includes('PING') || str.includes('PONG'))) {
+      logWs('[心跳]', str)
+    }
+  }
+
+  // 配置心跳：客户端每 5 秒发送一次心跳，期望服务端每 5 秒发送一次心跳
+  stomp.heartbeat.outgoing = 5000
+  stomp.heartbeat.incoming = 5000
+  
+  // 定期检查连接状态（仅在连接成功后启用）
+  // 清理旧的定时器
+  if (heartbeatCheckInterval) {
+    clearInterval(heartbeatCheckInterval)
+    heartbeatCheckInterval = null
+  }
+  
+  // 注意：这个检查只在连接成功后启用，避免在连接建立过程中误判
 
   const headers = { Authorization: 'Bearer ' + token }
   const connectTimeout = setTimeout(() => {
     if (!stomp.connected) {
       callbacks.onError?.(new Error('连接超时'))
+      if (!isManualDisconnect) {
+        scheduleReconnect(isInitialConnect) // 初始连接超时也不显示重连提示
+      }
     }
   }, 10000)
 
@@ -92,24 +172,77 @@ export async function connectChatWebSocket(callbacks = {}) {
       headers,
       (frame) => {
         clearTimeout(connectTimeout)
+        reconnectAttempts = 0
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
         logWs('连接成功', { sessionId: frame?.headers?.session })
+        
+        // 连接成功后，启动定期检查（仅在连接成功时启用，避免误判）
+        if (heartbeatCheckInterval) {
+          clearInterval(heartbeatCheckInterval)
+        }
+        heartbeatCheckInterval = setInterval(() => {
+          if (isManualDisconnect) {
+            clearInterval(heartbeatCheckInterval)
+            heartbeatCheckInterval = null
+            return
+          }
+          
+          // 只有在连接成功后才会检查，如果 STOMP 显示未连接，说明真的断开了
+          if (stomp && !stomp.connected) {
+            logWs('检测到连接断开（定期检查）')
+            clearInterval(heartbeatCheckInterval)
+            heartbeatCheckInterval = null
+            callbacks.onDisconnect?.()
+            scheduleReconnect(false) // 定期检查发现的断开，不是初始连接
+          }
+        }, 5000) // 每 5 秒检查一次（降低频率，避免误判）
+        
         callbacks.onConnect?.()
       },
       (error) => {
         clearTimeout(connectTimeout)
         if (isUnauthorized(error)) {
+          isManualDisconnect = true
           performSessionLogout('聊天会话已失效，请重新登录')
           return
         }
         logStompError(error)
         callbacks.onError?.(error)
+        if (!isManualDisconnect) {
+          scheduleReconnect(isInitialConnect) // 初始连接错误也不显示重连提示
+        }
       },
     )
   } catch (error) {
     clearTimeout(connectTimeout)
     logStompError(error)
     callbacks.onError?.(error)
+    if (!isManualDisconnect) {
+      scheduleReconnect(isInitialConnect) // 初始连接异常也不显示重连提示
+    }
   }
+}
+
+/**
+ * 连接聊天 WebSocket
+ * @param {Object} callbacks - 回调函数
+ *   - onConnect: 连接成功
+ *   - onDisconnect: 连接断开
+ *   - onError: 连接错误
+ *   - onReconnecting: 正在重连 (attempt, delay)
+ *   - onReconnectFailed: 重连失败（达到最大次数）
+ */
+export async function connectChatWebSocket(callbacks = {}) {
+  currentCallbacks = callbacks
+  isManualDisconnect = false
+  reconnectAttempts = 0
+  clearTimeout(reconnectTimer)
+  reconnectTimer = null
+  
+  // 标记这是初始连接，不是重连
+  const wasConnected = stomp?.connected || false
+  await connectChatWebSocketInternal(callbacks, !wasConnected)
 }
 
 export function subscribeRoomChat(roomId, onEvent) {
@@ -118,7 +251,6 @@ export function subscribeRoomChat(roomId, onEvent) {
   try {
     client = getClient()
   } catch (e) {
-    console.error('[CHAT-WS] 订阅失败，连接未建立', e)
     throw e
   }
   const topic = `/topic/chat.room.${roomId}`
@@ -130,7 +262,7 @@ export function subscribeRoomChat(roomId, onEvent) {
       const evt = JSON.parse(frame.body)
       onEvent(evt)
     } catch (err) {
-      console.error('[CHAT-WS] 解析消息失败', err)
+      // 解析失败，静默处理
     }
   })
   subscriptions.set(topic, sub)
@@ -148,7 +280,6 @@ export function sendRoomChat(roomId, content, clientOpId) {
   try {
     client = getClient()
   } catch (e) {
-    console.error('[CHAT-WS] 发送失败，连接未建立', e)
     throw e
   }
   logWs('发送房间消息', { roomId, content })
@@ -163,6 +294,18 @@ export function sendRoomChat(roomId, content, clientOpId) {
 }
 
 export function disconnectChatWebSocket() {
+  isManualDisconnect = true
+  clearTimeout(reconnectTimer)
+  reconnectTimer = null
+  reconnectAttempts = 0
+  currentCallbacks = null
+  
+  // 清理心跳检测定时器
+  if (heartbeatCheckInterval) {
+    clearInterval(heartbeatCheckInterval)
+    heartbeatCheckInterval = null
+  }
+
   subscriptions.forEach((sub) => {
     try {
       sub.unsubscribe()

@@ -26,7 +26,7 @@ export const OngoingGameProvider = ({ children }) => {
         setState({ loading: false, data: null, error: null })
       }
     } catch (error) {
-      console.error('[OngoingGame] 获取进行中对局失败', error)
+      // 获取进行中对局失败，静默处理
       setState({ loading: false, data: null, error })
     }
   }, [])
@@ -40,7 +40,7 @@ export const OngoingGameProvider = ({ children }) => {
       try {
         await endOngoingGame(roomId)
       } catch (error) {
-        console.error('[OngoingGame] 结束对局失败', error)
+        // 结束对局失败，静默处理
         setState((prev) => ({ ...prev, error }))
         throw error
       } finally {

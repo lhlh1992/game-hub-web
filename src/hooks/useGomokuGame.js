@@ -211,10 +211,16 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
     let mounted = true
     let checkInterval = null
     let unsubscribeKicked = null
+    let reconnectMessageTimer = null
 
     const handleConnect = () => {
       if (!mounted) return
       setWsConnected(true)
+      // 清除重连提示
+      if (reconnectMessageTimer) {
+        clearTimeout(reconnectMessageTimer)
+        reconnectMessageTimer = null
+      }
 
       // 订阅房间事件
       subscribeRoom(roomId, (evt) => {
@@ -263,12 +269,34 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
     const handleDisconnect = () => {
       if (!mounted) return
       setWsConnected(false)
+      // 不在这里显示提示，让 handleReconnecting 统一处理
     }
 
     const handleError = (error) => {
       if (!mounted) return
-      console.error('WebSocket 错误', error)
       setWsConnected(false)
+    }
+
+    const handleReconnecting = (attempt, delay) => {
+      if (!mounted) return
+      setWsConnected(false)
+      // 延迟显示重连提示，避免频繁闪烁
+      if (reconnectMessageTimer) {
+        clearTimeout(reconnectMessageTimer)
+      }
+      reconnectMessageTimer = setTimeout(() => {
+        if (mounted) {
+          onMessage?.('连接断开，正在重连...', 'warning')
+        }
+      }, 1000)
+    }
+
+    const handleReconnectFailed = () => {
+      if (!mounted) return
+      if (reconnectMessageTimer) {
+        clearTimeout(reconnectMessageTimer)
+        reconnectMessageTimer = null
+      }
       onMessage?.('连接失败，请刷新页面重试', 'error')
     }
 
@@ -277,6 +305,8 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       onConnect: handleConnect,
       onDisconnect: handleDisconnect,
       onError: handleError,
+      onReconnecting: handleReconnecting,
+      onReconnectFailed: handleReconnectFailed,
     })
 
     // 定期检查连接状态（作为备用）
@@ -293,6 +323,9 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       mounted = false
       if (checkInterval) {
         clearInterval(checkInterval)
+      }
+      if (reconnectMessageTimer) {
+        clearTimeout(reconnectMessageTimer)
       }
       if (unsubscribeKicked) {
         unsubscribeKicked()
@@ -524,7 +557,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
         }
       } catch (error) {
         // 静默失败，不影响用户体验
-        console.warn(`获取用户信息失败 (${seat}):`, error)
+        // 获取用户信息失败，静默处理
       }
     },
     []
@@ -732,7 +765,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
           sendPlace(roomRef.current, x, y, sideToMove, seatKeyRef.current)
           // 不再在前端乐观落子，完全以服务端广播为准，避免未开始阶段出现“假落子”
         } catch (error) {
-          console.error('发送落子指令失败', error)
+          // 发送失败，静默处理
           onMessage?.('落子失败，请检查网络连接后重试。', 'error')
         }
       }
@@ -751,7 +784,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       try {
         sendResign(roomRef.current, seatKeyRef.current)
       } catch (error) {
-        console.error('发送认输指令失败', error)
+        // 发送失败，静默处理
         onMessage?.('认输失败，请检查网络连接后重试。', 'error')
       }
     }
@@ -768,7 +801,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       try {
         sendRestart(roomRef.current, seatKeyRef.current)
       } catch (error) {
-        console.error('发送重开指令失败', error)
+        // 发送失败，静默处理
         onMessage?.('重开失败，请检查网络连接后重试。', 'error')
       }
     }
@@ -784,7 +817,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       try {
         sendReady(roomRef.current, seatKeyRef.current)
       } catch (error) {
-        console.error('发送准备指令失败', error)
+        // 发送失败，静默处理
         onMessage?.('准备失败，请检查网络连接后重试。', 'error')
       }
     }
@@ -800,7 +833,7 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       try {
         sendStartGame(roomRef.current, seatKeyRef.current)
       } catch (error) {
-        console.error('发送开始游戏指令失败', error)
+        // 发送失败，静默处理
         onMessage?.('开始游戏失败，请检查网络连接后重试。', 'error')
       }
     }

@@ -84,7 +84,7 @@ const LobbyPage = () => {
         setRoomsCursor(res.nextCursor || null)
         setRoomsHasMore(!!res.nextCursor)
       } catch (e) {
-        console.error('加载房间列表失败', e)
+        // 加载房间列表失败，静默处理
       } finally {
         setRefreshingRooms(false)
       }
@@ -160,7 +160,7 @@ const LobbyPage = () => {
       clearInterval(matchmakingPollRef.current)
     }
     matchmakingPollRef.current = setInterval(() => {
-      console.debug('轮询匹配状态...')
+      // 轮询匹配状态
     }, 2000)
     if (matchmakingSuccessRef.current) {
       clearTimeout(matchmakingSuccessRef.current)
@@ -267,7 +267,7 @@ const LobbyPage = () => {
                 setRoomsCursor(res.nextCursor || null)
                 setRoomsHasMore(!!res.nextCursor)
               } catch (e) {
-                console.error('刷新房间列表失败', e)
+                // 刷新房间列表失败，静默处理
               } finally {
                 setRefreshingRooms(false)
               }
@@ -282,7 +282,7 @@ const LobbyPage = () => {
                 setRoomsCursor(res.nextCursor || null)
                 setRoomsHasMore(!!res.nextCursor)
               } catch (e) {
-                console.error('加载更多房间失败', e)
+                // 加载更多房间失败，静默处理
               } finally {
                 setLoadingMoreRooms(false)
               }
@@ -471,7 +471,7 @@ const RoomListPanel = ({ rooms, refreshing, loadingMore, hasMore, onRefresh, onL
       // 加入成功后跳转到房间页面
       navigate(`/game/${room.id}`)
     } catch (error) {
-      console.error('加入房间失败', error)
+      // 加入房间失败，静默处理
       setJoinError(error.message || '加入房间失败')
     } finally {
       setJoiningRoomId(null)

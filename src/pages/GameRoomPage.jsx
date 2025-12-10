@@ -234,7 +234,7 @@ const GameRoomPage = () => {
           )
         }
       } catch (e) {
-        console.warn('懒加载用户档案失败', key, e)
+        // 懒加载用户档案失败，静默处理
       } finally {
         pendingUserFetch.current.delete(key)
       }
@@ -293,7 +293,7 @@ const GameRoomPage = () => {
           await refreshOngoing?.()
         }
       } catch (error) {
-        console.error('验证对局状态失败', error)
+        // 验证对局状态失败，静默处理
         window.alert('无法验证当前对局状态，已返回大厅')
         navigate('/lobby', { replace: true })
       }
@@ -340,14 +340,14 @@ const GameRoomPage = () => {
   }, [currentUserId, resolveDisplayName, ensureUserProfile])
 
   // 房间聊天：独立 WS 连接（并行于游戏 WS）
-  const { connected: chatConnected, error: chatWsError, send: sendChatWs } = useChatRoomWs({
+  const { connected: chatConnected, reconnecting: chatReconnecting, error: chatWsError, send: sendChatWs } = useChatRoomWs({
     roomId,
     onMessage: handleChatMessage,
   })
 
   useEffect(() => {
     if (chatWsError) {
-      console.error('Chat WebSocket 错误', chatWsError)
+      // Chat WebSocket 错误，静默处理
       setChatError(chatWsError)
     } else {
       setChatError(null)
@@ -605,7 +605,7 @@ const GameRoomPage = () => {
       try {
         sendChatWs(trimmed)
       } catch (err) {
-        console.error('发送房间聊天失败', err)
+        // 发送房间聊天失败，静默处理
       }
     },
     [roomId, sendChatWs],
@@ -702,7 +702,7 @@ const GameRoomPage = () => {
       await leaveRoom(roomId)
       await refreshOngoing?.()
     } catch (error) {
-      console.error('离开房间失败', error)
+      // 离开房间失败，静默处理
       window.alert('离开房间失败，请稍后再试')
     } finally {
       setLeaving(false)
@@ -864,7 +864,7 @@ const GameRoomPage = () => {
       sendKick(roomId, kickConfirmModal.targetUserId, storedSeatKey)
       setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
     } catch (error) {
-      console.error('踢人失败', error)
+      // 踢人失败，静默处理
       window.alert(`踢人失败：${error.message || '未知错误'}`)
       kickedPlayerNameRef.current = null
     } finally {
@@ -903,7 +903,7 @@ const GameRoomPage = () => {
             readyButtonLabel={roomPhase !== 'PLAYING' ? (selfReady ? '取消准备' : '准备') : null}
             onToggleReady={roomPhase !== 'PLAYING' ? handleToggleReady : null}
           />
-          <GameChatPanel messages={chatHistory} onSend={handleSendChat} chatConnected={chatConnected} chatError={chatError} />
+          <GameChatPanel messages={chatHistory} onSend={handleSendChat} chatConnected={chatConnected} chatReconnecting={chatReconnecting} chatError={chatError} />
           <div className="leave-room-panel">
             <span className="leave-arrow" aria-hidden="true">
               ←
@@ -1248,7 +1248,7 @@ const PlayerCard = ({
   )
 }
 
-const GameChatPanel = ({ messages, onSend, chatConnected, chatError }) => {
+const GameChatPanel = ({ messages, onSend, chatConnected, chatReconnecting, chatError }) => {
   const [input, setInput] = useState('')
   const listRef = useRef(null)
 
@@ -1276,7 +1276,10 @@ const GameChatPanel = ({ messages, onSend, chatConnected, chatError }) => {
     <div className="game-chat-panel">
       <div className="game-chat-header">
         <span className="game-chat-title">GAME CHAT</span>
-        <span className={`chat-conn-dot ${chatConnected ? 'ok' : 'bad'}`}>{chatConnected ? '●' : '○'}</span>
+        <span className={`chat-conn-dot ${chatConnected ? 'ok' : chatReconnecting ? 'reconnecting' : 'bad'}`}>
+          {chatConnected ? '●' : chatReconnecting ? '⟳' : '○'}
+        </span>
+        {chatReconnecting && <span className="chat-reconnecting-text">重连中...</span>}
         {chatError && <span className="chat-error">WS错误</span>}
       </div>
       <div className="game-chat-messages" id="gameChatMessages" ref={listRef}>
@@ -1361,7 +1364,7 @@ const MessageToast = ({ info, onClose }) => {
     <div className={`message-toast ${info.show ? 'show' : ''}`} onClick={onClose}>
       <div className={`message-toast-content ${info.type}`}>
         <span className="message-toast-icon">
-          {info.type === 'error' ? '⚠️' : 'ℹ️'}
+          {info.type === 'error' ? '⚠️' : info.type === 'warning' ? '⚠️' : 'ℹ️'}
         </span>
         <span className="message-toast-text">{info.text}</span>
       </div>

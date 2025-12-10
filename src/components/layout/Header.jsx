@@ -52,7 +52,7 @@ const Header = () => {
       await refreshOngoing?.()
       navigate('/lobby')
     } catch (error) {
-      console.error('结束对局失败', error)
+      // 结束对局失败，静默处理
       window.alert('结束对局失败，请稍后再试')
     } finally {
       setEnding(false)

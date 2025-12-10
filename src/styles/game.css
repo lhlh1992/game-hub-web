@@ -11,6 +11,20 @@
 .chat-conn-dot.bad {
   color: #e74c3c;
 }
+.chat-conn-dot.reconnecting {
+  color: #f39c12;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.chat-reconnecting-text {
+  margin-left: 6px;
+  color: #f39c12;
+  font-size: 12px;
+  font-style: italic;
+}
 .chat-error {
   margin-left: 6px;
   color: #e74c3c;
@@ -780,6 +794,15 @@
         0 0 40px rgba(66, 153, 225, 0.15);
 }
 
+.message-toast-content.warning {
+    border-left: 4px solid #F6AD55;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 251, 235, 0.98) 100%);
+    box-shadow: 
+        0 8px 32px rgba(246, 173, 85, 0.2),
+        0 0 0 1px rgba(246, 173, 85, 0.2),
+        0 0 40px rgba(246, 173, 85, 0.15);
+}
+
 .message-toast-icon {
     font-size: 24px;
     line-height: 1;
@@ -810,6 +833,13 @@
         0 12px 40px rgba(66, 153, 225, 0.25),
         0 0 0 1px rgba(66, 153, 225, 0.3),
         0 0 60px rgba(66, 153, 225, 0.2);
+}
+
+.message-toast-content.warning:hover {
+    box-shadow: 
+        0 12px 40px rgba(246, 173, 85, 0.25),
+        0 0 0 1px rgba(246, 173, 85, 0.3),
+        0 0 60px rgba(246, 173, 85, 0.2);
 }
 
 /* ============================================

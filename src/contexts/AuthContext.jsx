@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
       const profile = await getUserInfo()
       setUser(profile || null)
     } catch (error) {
-      console.error('加载用户信息失败', error)
+      // 加载用户信息失败，静默处理
       setUser(null)
     }
   }, [])
@@ -57,7 +57,7 @@ export function AuthProvider({ children }) {
         if (!mounted) {
           return
         }
-        console.warn('初始化认证状态失败', error)
+        // 初始化认证状态失败，静默处理
         setIsAuthenticated(false)
       } finally {
         if (mounted) {
@@ -74,7 +74,9 @@ export function AuthProvider({ children }) {
   }, [isPublicRoute, loadUserProfile])
 
   const login = useCallback(() => {
-    initAndLogin().catch((error) => console.warn('跳转登录失败', error))
+    initAndLogin().catch(() => {
+      // 跳转登录失败，静默处理
+    })
   }, [])
 
   const logout = useCallback(async () => {

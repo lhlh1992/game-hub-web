@@ -169,7 +169,7 @@ export function handleAuthExpiredResponse(res, context) {
 }
 
 export function handleFetchFailure(error, context) {
-  console.error(context || 'fetch error', error)
+  // 请求失败，静默处理
   performSessionLogout(context || 'fetch error')
 }
 
@@ -258,7 +258,7 @@ export async function validateToken(token) {
 
     return res.ok
   } catch (error) {
-    console.error('validateToken error', error)
+    // 验证 token 失败，静默处理
     return false
   }
 }
@@ -338,7 +338,7 @@ async function fetchSystemUserProfile(token) {
       return data
     }
   } catch (error) {
-    console.error('fetchSystemUserProfile error', error)
+    // 获取用户信息失败，静默处理
     // 失败时尝试基础接口
     return await fetchSystemUserProfileBasic(token)
   }
@@ -371,7 +371,7 @@ async function fetchSystemUserProfileBasic(token) {
       return data
     }
   } catch (error) {
-    console.error('fetchSystemUserProfileBasic error', error)
+    // 获取用户基本信息失败，静默处理
   }
   return null
 }
@@ -400,7 +400,7 @@ async function fetchGatewayUserProfile(token) {
     }
     return profile
   } catch (error) {
-    console.error('fetchGatewayUserProfile error', error)
+    // 获取网关用户信息失败，静默处理
     return null
   }
 }
@@ -415,7 +415,7 @@ export async function logoutFromGateway(redirectUri = window.location.origin) {
       credentials: 'include',
     })
   } catch (error) {
-    console.warn('调用 /logout 失败，直接清理本地状态', error)
+    // 调用 /logout 失败，直接清理本地状态
   } finally {
     clearToken()
     sessionLoggingOut = false

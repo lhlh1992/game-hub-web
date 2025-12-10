@@ -20,7 +20,7 @@ const SessionMonitorPage = () => {
       setSessions(data || [])
       setLastUpdate(new Date())
     } catch (err) {
-      console.error('获取会话信息失败', err)
+      // 获取会话信息失败，静默处理
       setError(err.message || '获取会话信息失败')
     } finally {
       setLoading(false)
