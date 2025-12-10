@@ -20,12 +20,13 @@
 
 ## 项目概述
 
-Game Hub Web 是一个基于 React 的实时五子棋游戏前端应用，采用单页应用（SPA）架构，通过 WebSocket 实现实时游戏逻辑和聊天功能。应用支持玩家对战（PVP）和人机对战（PVE）两种模式，提供完整的房间管理、实时对局、聊天通信等功能。
+Game Hub Web 是一个基于 React 的实时五子棋游戏前端应用，采用单页应用（SPA）架构，通过 WebSocket 实现实时游戏逻辑和聊天功能。应用支持玩家对战（PVP）和人机对战（PVE）两种模式，提供完整的房间管理、实时对局、聊天通信（含历史回溯）等功能。
 
 ### 核心特性
 
 - **实时游戏对局**：基于 WebSocket 的实时棋盘状态同步
 - **双 WebSocket 连接**：游戏逻辑与聊天功能独立连接，互不干扰
+- **房间聊天历史**：进入房间自动加载最近 50 条历史（Redis 24h TTL，按房间隔离）
 - **自动重连机制**：连接断开时自动重连，保证用户体验
 - **心跳保活**：5 秒心跳间隔，及时检测连接状态
 - **房间管理**：创建、加入、离开房间，支持房主权限
@@ -568,6 +569,7 @@ function subscribeRoom(roomId, onEvent) {
 
 **职责**：
 - 房间内聊天消息收发
+- 进入房间前先拉取最近 50 条聊天历史（HTTP `/chat-service/api/rooms/{roomId}/history`），再订阅实时消息
 
 **订阅**：
 - `/topic/chat.room.{roomId}`：房间聊天消息
@@ -597,6 +599,8 @@ useGomokuGame Hook 初始化
    - 再次 HTTP 请求：getRoomView(roomId) → 确保获取最新状态
   ↓
 useChatRoomWs Hook 初始化
+  ↓
+先拉取房间聊天历史：GET /chat-service/api/rooms/{roomId}/history?limit=50
   ↓
 connectChatWebSocket() → 建立 Chat WS 连接（或复用已有连接）
   ↓
@@ -643,6 +647,7 @@ handleFullSync(snap) → 恢复所有游戏状态
 ```
 
 **Chat WS 重连流程类似，但独立进行，不影响 Game WS。**
+**被踢处理**：游戏 WS 收到被踢事件只弹出“被踢出房间”提示并跳转大厅，不触发登录失效；同时刷新进行中对局状态以清空残留。
 
 ### 用户信息缓存机制
 
