@@ -15,6 +15,7 @@ import {
   isConnected,
 } from '../services/ws/gomokuSocket.js'
 import { getRoomView, getUserInfos } from '../services/api/gameApi.js'
+import { performSessionLogout } from '../services/auth/authService.js'
 
 const BOARD_SIZE = 15
 const EMPTY_BOARD = Array(BOARD_SIZE)
@@ -307,6 +308,14 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
       onError: handleError,
       onReconnecting: handleReconnecting,
       onReconnectFailed: handleReconnectFailed,
+      onKicked: (reason) => {
+        if (!mounted) return
+        setWsConnected(false)
+        const msg = reason || '账号已在其他终端登录'
+        onMessage?.(msg, 'warning')
+        // 被顶下线后，直接触发会话失效逻辑，回到登录
+        performSessionLogout(msg)
+      },
     })
 
     // 定期检查连接状态（作为备用）

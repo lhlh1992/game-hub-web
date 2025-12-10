@@ -213,6 +213,18 @@ async function connectChatWebSocketInternal(isInitialConnect = false) {
           }
         }, 5000) // 每 5 秒检查一次（降低频率，避免误判）
         
+        // 订阅系统踢线通知：收到后标记为手动断开，停止重连
+        try {
+          subscribeSystemKick((payload) => {
+            const reason = payload?.reason || '账号已在其他终端登录'
+            isManualDisconnect = true
+            notifyListeners('onKicked', reason)
+            disconnectChatWebSocket()
+          })
+        } catch {
+          // ignore
+        }
+
         notifyListeners('onConnect')
       },
       (error) => {
@@ -247,6 +259,7 @@ async function connectChatWebSocketInternal(isInitialConnect = false) {
  *   - onError: 连接错误
  *   - onReconnecting: 正在重连 (attempt, delay)
  *   - onReconnectFailed: 重连失败（达到最大次数）
+ *   - onKicked: 收到系统踢线通知（单点登录/登出），参数：reason
  */
 export async function connectChatWebSocket(callbacks = {}) {
   // 添加回调监听器（支持多个监听器）
@@ -317,6 +330,33 @@ export function subscribeRoomChat(roomId, onEvent) {
       // ignore
     }
   }
+}
+
+/**
+ * 订阅系统踢线通知（单点登录/登出等）
+ */
+function subscribeSystemKick(onKick) {
+  const client = getClient()
+  const topic = '/user/queue/system.kick'
+
+  if (subscriptions.has(topic)) {
+    try {
+      subscriptions.get(topic).unsubscribe()
+    } catch {
+      // ignore
+    }
+  }
+
+  const sub = client.subscribe(topic, (frame) => {
+    try {
+      const payload = JSON.parse(frame.body)
+      onKick?.(payload)
+    } catch {
+      // ignore
+    }
+  })
+
+  subscriptions.set(topic, sub)
 }
 
 export function sendRoomChat(roomId, content, clientOpId) {

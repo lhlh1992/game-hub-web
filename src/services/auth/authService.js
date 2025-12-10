@@ -69,11 +69,6 @@ function ensureAuthModalMounted() {
                 color: #fff;
                 box-shadow: 0 10px 20px rgba(255, 118, 148, 0.35);
             }
-            .auth-modal-btn.secondary {
-                background: #fff;
-                color: #ff8db2;
-                border: 2px solid rgba(255, 141, 178, 0.3);
-            }
             .auth-modal-btn:hover {
                 transform: translateY(-1px);
             }
@@ -83,8 +78,7 @@ function ensureAuthModalMounted() {
                 <h3>登录状态失效</h3>
                 <p>很抱歉，您的登录已过期或被其他设备挤下线，请重新登录后继续。</p>
                 <div class="auth-modal-actions">
-                    <button id="auth-modal-retry" class="auth-modal-btn primary">重新登录</button>
-                    <button id="auth-modal-cancel" class="auth-modal-btn secondary">稍后</button>
+                    <button id="auth-modal-retry" class="auth-modal-btn primary">确定</button>
                 </div>
             </div>
         </div>
@@ -93,7 +87,7 @@ function ensureAuthModalMounted() {
 
   const backdrop = modal.querySelector('.auth-modal-backdrop')
   const retryBtn = modal.querySelector('#auth-modal-retry')
-  const cancelBtn = modal.querySelector('#auth-modal-cancel')
+  const cancelBtn = null
 
   retryBtn.addEventListener('click', () => {
     hideAuthModal()
@@ -102,9 +96,7 @@ function ensureAuthModalMounted() {
     }
   })
 
-  cancelBtn.addEventListener('click', () => {
-    hideAuthModal()
-  })
+  // 无“稍后”按钮
 
   modal.showAuthModal = () => {
     sessionLoggingOut = true
