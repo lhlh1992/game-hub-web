@@ -38,6 +38,7 @@ const GlobalChat = () => {
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [drafts, setDrafts] = useState({})
   const messagesEndRef = useRef(null)
+  const hasUnread = useMemo(() => threads.some((t) => (t.unread || 0) > 0), [threads])
 
   useEffect(() => {
     try {
@@ -185,20 +186,20 @@ const GlobalChat = () => {
   return (
     <div className="chat-widget" id="globalChatWidget">
       {!drawerOpen && (
-        <div className="chat-launcher" id="globalChatLauncher" onClick={handleToggleDrawer} role="button" tabIndex={0}>
-          <div className="chat-launcher-left">
-            <div className="chat-launcher-icon">💬</div>
-            <div className="chat-launcher-text">
-              <div className="chat-launcher-title">Chats</div>
-              <div className="chat-launcher-sub">快速打开对话</div>
-            </div>
-          </div>
-          <div className={`chat-caret ${drawerOpen ? 'open' : ''}`}>⌄</div>
+        <div
+          className={`chat-launcher ${hasUnread ? 'has-unread' : ''}`}
+          id="globalChatLauncher"
+          onClick={handleToggleDrawer}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="chat-launcher-icon">💬</div>
+          <div className="chat-launcher-text sr-only">Chats</div>
         </div>
       )}
 
       {drawerOpen && (
-        <div className="chat-drawer" id="globalChatDrawer">
+        <div className="chat-drawer open" id="globalChatDrawer">
           <div className="chat-drawer-header">
             <div className="chat-drawer-title">
               <div className="chat-drawer-icon">💬</div>
@@ -242,7 +243,7 @@ const GlobalChat = () => {
       )}
 
       {activeThreadId && (
-        <div className="chat-thread-window" id="globalChatThreadWindow">
+        <div className="chat-thread-window open" id="globalChatThreadWindow">
           <div className="chat-thread-window-header">
             <div className="chat-thread-header-left">
               <div
