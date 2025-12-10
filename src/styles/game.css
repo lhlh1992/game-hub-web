@@ -2410,7 +2410,8 @@
     }
     
     .chat-widget {
-        width: 320px;
+        width: auto;
+        max-width: 360px;
     }
 }
 
@@ -2501,7 +2502,8 @@
     }
     
     .chat-widget {
-        width: calc(100% - 32px);
+        width: auto;
+        max-width: calc(100% - 32px);
         right: 16px;
         bottom: 16px;
     }
