@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { connectChatWebSocket, disconnectChatWebSocket } from '../services/ws/chatSocket.js'
+import { useEffect, useRef } from 'react'
+import { connectChatWebSocket, disconnectChatWebSocket, removeChatWebSocketCallbacks } from '../services/ws/chatSocket.js'
 import { useAuth } from './useAuth.js'
 
 /**
@@ -15,7 +15,9 @@ export function useGlobalChatWs() {
       disconnectChatWebSocket()
       return undefined
     }
-    connectChatWebSocket({
+    
+    // 创建回调对象
+    const callbacks = {
       onConnect: () => {
         // 连接成功
       },
@@ -31,9 +33,13 @@ export function useGlobalChatWs() {
       onReconnectFailed: () => {
         // 重连失败
       },
-    })
+    }
+    
+    connectChatWebSocket(callbacks)
+    
     return () => {
-      disconnectChatWebSocket()
+      // 移除回调监听器（不断开连接，因为可能有其他监听器在使用）
+      removeChatWebSocketCallbacks(callbacks)
     }
   }, [isAuthenticated])
 }

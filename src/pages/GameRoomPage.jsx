@@ -1280,7 +1280,6 @@ const GameChatPanel = ({ messages, onSend, chatConnected, chatReconnecting, chat
           {chatConnected ? '●' : chatReconnecting ? '⟳' : '○'}
         </span>
         {chatReconnecting && <span className="chat-reconnecting-text">重连中...</span>}
-        {chatError && <span className="chat-error">WS错误</span>}
       </div>
       <div className="game-chat-messages" id="gameChatMessages" ref={listRef}>
         {messages.map((msg) => (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { connectChatWebSocket, disconnectChatWebSocket, sendRoomChat, subscribeRoomChat } from '../services/ws/chatSocket.js'
+import { connectChatWebSocket, removeChatWebSocketCallbacks, sendRoomChat, subscribeRoomChat } from '../services/ws/chatSocket.js'
 
 /**
  * 维护独立的房间聊天 WS 连接（与游戏 WS 并行）。
@@ -18,7 +18,9 @@ export function useChatRoomWs({ roomId, onMessage }) {
     let cancelled = false
     setError(null)
     setReconnecting(false)
-    connectChatWebSocket({
+    
+    // 创建回调对象
+    const callbacks = {
       onConnect: () => {
         if (cancelled) return
         setConnected(true)
@@ -46,12 +48,16 @@ export function useChatRoomWs({ roomId, onMessage }) {
         setReconnecting(false)
         setError(new Error('重连失败，请刷新页面'))
       },
-    })
+    }
+    
+    connectChatWebSocket(callbacks)
+    
     return () => {
       cancelled = true
       unsubRef.current?.()
       unsubRef.current = null
-      // 不主动断开全局聊天 WS，只取消房间订阅
+      // 移除回调监听器（不主动断开全局聊天 WS，只取消房间订阅）
+      removeChatWebSocketCallbacks(callbacks)
     }
   }, [roomId, onMessage])
 

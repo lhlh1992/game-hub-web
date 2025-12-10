@@ -14,9 +14,25 @@ let reconnectAttempts = 0
 const MAX_RECONNECT_ATTEMPTS = 10
 const INITIAL_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 30000
-let currentCallbacks = null
+// 使用回调列表管理多个监听器（支持 useGlobalChatWs 和 useChatRoomWs 同时监听）
+const callbackListeners = new Set()
 let isManualDisconnect = false
 let heartbeatCheckInterval = null // 心跳检测定时器（全局变量，用于清理）
+
+/**
+ * 通知所有监听器
+ */
+function notifyListeners(method, ...args) {
+  callbackListeners.forEach((callbacks) => {
+    if (callbacks && typeof callbacks[method] === 'function') {
+      try {
+        callbacks[method](...args)
+      } catch (error) {
+        // 监听器回调出错，不影响其他监听器
+      }
+    }
+  })
+}
 
 function logWs(...args) {
   // 控制台输出已禁用
@@ -68,7 +84,7 @@ function scheduleReconnect(isInitialConnect = false) {
 
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     logWs('达到最大重连次数，停止重连')
-    currentCallbacks?.onReconnectFailed?.()
+    notifyListeners('onReconnectFailed')
     return
   }
 
@@ -78,29 +94,28 @@ function scheduleReconnect(isInitialConnect = false) {
 
   // 只有在真正重连时才显示提示（不是初始连接）
   if (!isInitialConnect) {
-    currentCallbacks?.onReconnecting?.(reconnectAttempts, delay)
+    notifyListeners('onReconnecting', reconnectAttempts, delay)
   }
 
   reconnectTimer = setTimeout(() => {
     if (!isManualDisconnect) {
       logWs(`开始第 ${reconnectAttempts} 次重连`)
-      connectChatWebSocketInternal(currentCallbacks)
+      connectChatWebSocketInternal()
     }
   }, delay)
 }
 
 /**
  * 内部连接方法（支持重连）
- * @param {Object} callbacks - 回调函数
  * @param {boolean} isInitialConnect - 是否是初始连接
  */
-async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = false) {
+async function connectChatWebSocketInternal(isInitialConnect = false) {
   if (typeof window === 'undefined') return
   if (stomp && stomp.connected) {
     reconnectAttempts = 0
     clearTimeout(reconnectTimer)
     reconnectTimer = null
-    callbacks.onConnect?.()
+    notifyListeners('onConnect')
     return
   }
   // 关闭旧连接
@@ -122,7 +137,7 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
   logWs('建立连接', { url: '/chat-service/ws' })
   socket = new SockJS(wsUrl)
   socket.onclose = (event) => {
-    callbacks.onDisconnect?.()
+    notifyListeners('onDisconnect')
     if (!isManualDisconnect) {
       scheduleReconnect(false) // 此时不是初始连接
     }
@@ -131,7 +146,7 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
     logWs('SockJS 错误', error)
     // SockJS 错误通常意味着连接问题，立即触发断开检测
     if (!isManualDisconnect && socket.readyState === SockJS.CLOSED) {
-      callbacks.onDisconnect?.()
+      notifyListeners('onDisconnect')
       scheduleReconnect(false) // 此时不是初始连接
     }
   }
@@ -160,7 +175,7 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
   const headers = { Authorization: 'Bearer ' + token }
   const connectTimeout = setTimeout(() => {
     if (!stomp.connected) {
-      callbacks.onError?.(new Error('连接超时'))
+      notifyListeners('onError', new Error('连接超时'))
       if (!isManualDisconnect) {
         scheduleReconnect(isInitialConnect) // 初始连接超时也不显示重连提示
       }
@@ -193,12 +208,12 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
             logWs('检测到连接断开（定期检查）')
             clearInterval(heartbeatCheckInterval)
             heartbeatCheckInterval = null
-            callbacks.onDisconnect?.()
+            notifyListeners('onDisconnect')
             scheduleReconnect(false) // 定期检查发现的断开，不是初始连接
           }
         }, 5000) // 每 5 秒检查一次（降低频率，避免误判）
         
-        callbacks.onConnect?.()
+        notifyListeners('onConnect')
       },
       (error) => {
         clearTimeout(connectTimeout)
@@ -208,7 +223,7 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
           return
         }
         logStompError(error)
-        callbacks.onError?.(error)
+        notifyListeners('onError', error)
         if (!isManualDisconnect) {
           scheduleReconnect(isInitialConnect) // 初始连接错误也不显示重连提示
         }
@@ -217,7 +232,7 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
   } catch (error) {
     clearTimeout(connectTimeout)
     logStompError(error)
-    callbacks.onError?.(error)
+    notifyListeners('onError', error)
     if (!isManualDisconnect) {
       scheduleReconnect(isInitialConnect) // 初始连接异常也不显示重连提示
     }
@@ -234,15 +249,44 @@ async function connectChatWebSocketInternal(callbacks = {}, isInitialConnect = f
  *   - onReconnectFailed: 重连失败（达到最大次数）
  */
 export async function connectChatWebSocket(callbacks = {}) {
-  currentCallbacks = callbacks
+  // 添加回调监听器（支持多个监听器）
+  if (callbacks && Object.keys(callbacks).length > 0) {
+    callbackListeners.add(callbacks)
+  }
+  
+  // 如果已经连接，直接通知新添加的监听器，不重置重连状态
+  if (stomp && stomp.connected) {
+    // 通知新添加的监听器连接已建立
+    if (callbacks && typeof callbacks.onConnect === 'function') {
+      try {
+        callbacks.onConnect()
+      } catch (error) {
+        // 忽略错误
+      }
+    }
+    return
+  }
+  
+  // 如果正在重连（reconnectTimer 存在），只添加监听器，不干扰重连过程
+  // 重连成功后会通过 notifyListeners 通知所有监听器（包括新添加的）
+  if (reconnectTimer) {
+    return
+  }
+  
+  // 只有在没有连接且没有正在重连时，才初始化连接
   isManualDisconnect = false
   reconnectAttempts = 0
-  clearTimeout(reconnectTimer)
-  reconnectTimer = null
-  
   // 标记这是初始连接，不是重连
-  const wasConnected = stomp?.connected || false
-  await connectChatWebSocketInternal(callbacks, !wasConnected)
+  await connectChatWebSocketInternal(true)
+}
+
+/**
+ * 移除回调监听器
+ */
+export function removeChatWebSocketCallbacks(callbacks) {
+  if (callbacks) {
+    callbackListeners.delete(callbacks)
+  }
 }
 
 export function subscribeRoomChat(roomId, onEvent) {
@@ -298,7 +342,7 @@ export function disconnectChatWebSocket() {
   clearTimeout(reconnectTimer)
   reconnectTimer = null
   reconnectAttempts = 0
-  currentCallbacks = null
+  callbackListeners.clear() // 清空所有回调监听器
   
   // 清理心跳检测定时器
   if (heartbeatCheckInterval) {
