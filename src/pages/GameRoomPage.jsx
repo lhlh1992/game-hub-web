@@ -4,7 +4,7 @@ import '../styles/game.css'
 import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
-import { getOngoingGame, leaveRoom, getUserInfo } from '../services/api/gameApi.js'
+import { getOngoingGame, leaveRoom, getUserInfo, getRoomView } from '../services/api/gameApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
 import { useChatRoomWs } from '../hooks/useChatRoomWs.js'
 import { ROOM_MESSAGES } from '../i18n/index.js'
@@ -315,31 +315,34 @@ const GameRoomPage = () => {
     upsertUserInfos([seatXUserInfo, seatOUserInfo])
   }, [seatXUserInfo, seatOUserInfo, upsertUserInfos])
 
+  // 房间聊天消息处理回调（使用 useCallback 确保引用稳定，避免重复订阅）
+  const handleChatMessage = useCallback((evt) => {
+    const { senderId, senderName, content, timestamp } = evt || {}
+    const isSelf = senderId && senderId === currentUserId
+    const type = isSelf ? 'player1' : 'player2'
+    const displayName = resolveDisplayName(senderId, senderName)
+    if (senderId && (!senderName || displayName === String(senderId))) {
+      // 缺失展示名时触发懒加载档案
+      ensureUserProfile(senderId)
+    }
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        id: crypto?.randomUUID?.() || String(Date.now()),
+        type,
+        senderId: senderId ? String(senderId) : undefined,
+        senderName: displayName,
+        contentRaw: content || '',
+        text: `${displayName}: ${content || ''}`,
+        timestamp,
+      },
+    ])
+  }, [currentUserId, resolveDisplayName, ensureUserProfile])
+
   // 房间聊天：独立 WS 连接（并行于游戏 WS）
   const { connected: chatConnected, error: chatWsError, send: sendChatWs } = useChatRoomWs({
     roomId,
-    onMessage: (evt) => {
-      const { senderId, senderName, content, timestamp } = evt || {}
-      const isSelf = senderId && senderId === currentUserId
-      const type = isSelf ? 'player1' : 'player2'
-      const displayName = resolveDisplayName(senderId, senderName)
-      if (senderId && (!senderName || displayName === String(senderId))) {
-        // 缺失展示名时触发懒加载档案
-        ensureUserProfile(senderId)
-      }
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          id: crypto?.randomUUID?.() || String(Date.now()),
-          type,
-          senderId: senderId ? String(senderId) : undefined,
-          senderName: displayName,
-          contentRaw: content || '',
-          text: `${displayName}: ${content || ''}`,
-          timestamp,
-        },
-      ])
-    },
+    onMessage: handleChatMessage,
   })
 
   useEffect(() => {
@@ -364,6 +367,37 @@ const GameRoomPage = () => {
       upsertUserInfos([user])
     }
   }, [user, isOwner, upsertUserInfos])
+
+  // 当用户信息更新时，更新本地缓存（不调用后端接口）
+  // 前端通过比较 useAuth 的 user 对象变化来感知用户信息更新
+  // 当用户在个人中心修改信息后，ProfilePage 会调用 refreshUser() 更新全局 user 对象
+  const prevUserRef = useRef(user)
+  useEffect(() => {
+    if (!user) {
+      prevUserRef.current = user
+      return
+    }
+    
+    const prevUser = prevUserRef.current
+    // 检测用户信息是否发生变化（昵称、用户名或头像）
+    const userInfoChanged = 
+      prevUser && 
+      (prevUser.nickname !== user.nickname || 
+       prevUser.username !== user.username || 
+       prevUser.avatarUrl !== user.avatarUrl)
+    
+    if (userInfoChanged) {
+      // 用户信息已更新，直接更新本地缓存（不调用后端接口）
+      // 因为后端 Redis 缓存已经通过 updateProfile 更新了
+      // 下次getRoomView 返回的快照会包含最新的用户信息
+      // 这里只更新本地缓存，确保前端显示立即更新
+      if (user?.userId) {
+        upsertUserInfos([user])
+      }
+    }
+    
+    prevUserRef.current = user
+  }, [user, upsertUserInfos])
 
   useEffect(() => {
     // 如果 mySide 已设置，更新自己的玩家信息
@@ -452,34 +486,39 @@ const GameRoomPage = () => {
     }
 
     // 确定显示的名字（优先昵称 -> 用户名 -> 截断的 userId）
+    // 优先使用本地缓存（userInfoCache）作为兜底，确保用户信息更新后能立即显示
     let opponentName = 'Waiting...'
     let opponentAvatar = DEFAULT_AVATAR
     const normalizedMode = mode ? String(mode).toUpperCase() : null
     if (normalizedMode === 'PVE') {
       opponentName = 'AI Opponent'
     } else if (shouldShowOpponent) {
-      if (opponentInfo) {
+      // 优先从本地缓存获取（如果缓存中有更新的信息）
+      const cachedOpponentInfo = opponentUserId ? userInfoCache[String(opponentUserId)] : null
+      const finalOpponentInfo = cachedOpponentInfo || opponentInfo
+      
+      if (finalOpponentInfo) {
         // 优先使用 nickname，其次 username，最后才使用 userId 作为后备
-        const nick = opponentInfo.nickname && String(opponentInfo.nickname).trim()
-        const uname = opponentInfo.username && String(opponentInfo.username).trim()
+        const nick = finalOpponentInfo.nickname && String(finalOpponentInfo.nickname).trim()
+        const uname = finalOpponentInfo.username && String(finalOpponentInfo.username).trim()
         // 只有当 nickname 和 username 都为空时，才使用 userId 作为后备
         if (nick) {
           opponentName = nick
         } else if (uname) {
           opponentName = uname
         } else {
-          // 如果 nickname 和 username 都为空，但 opponentInfo 存在，说明数据可能还没完全加载
+          // 如果 nickname 和 username 都为空，但 finalOpponentInfo 存在，说明数据可能还没完全加载
           // 暂时保持 'Waiting...'，等待后续数据更新
           opponentName = 'Waiting...'
         }
-        // 从 opponentInfo 中获取 avatar
-        if (opponentInfo.avatarUrl && String(opponentInfo.avatarUrl).trim()) {
-          opponentAvatar = String(opponentInfo.avatarUrl).trim()
-        } else if (opponentInfo.avatar && String(opponentInfo.avatar).trim()) {
-          opponentAvatar = String(opponentInfo.avatar).trim()
+        // 从 finalOpponentInfo 中获取 avatar
+        if (finalOpponentInfo.avatarUrl && String(finalOpponentInfo.avatarUrl).trim()) {
+          opponentAvatar = String(finalOpponentInfo.avatarUrl).trim()
+        } else if (finalOpponentInfo.avatar && String(finalOpponentInfo.avatar).trim()) {
+          opponentAvatar = String(finalOpponentInfo.avatar).trim()
         }
       } else {
-        // opponentInfo 不存在，说明数据还没加载，保持 'Waiting...'
+        // finalOpponentInfo 不存在，说明数据还没加载，保持 'Waiting...'
         opponentName = 'Waiting...'
       }
     }
@@ -515,7 +554,7 @@ const GameRoomPage = () => {
       isActive: prev.isActive ?? false,
       isOwner: isOpponentOwner ?? false,
     }))
-  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId])
+  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId, userInfoCache])
 
   // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
   useEffect(() => {}, [opponentPlayer])
@@ -563,23 +602,13 @@ const GameRoomPage = () => {
     (text) => {
       const trimmed = text.trim()
       if (!trimmed || !roomId) return
-      const displayName = selfPlayer.name || 'Me'
-      // 先本地追加，提升体验
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          id: crypto?.randomUUID?.() || String(Date.now()),
-          type: 'player1',
-          text: `${displayName}: ${trimmed}`,
-        },
-      ])
       try {
         sendChatWs(trimmed)
       } catch (err) {
         console.error('发送房间聊天失败', err)
       }
     },
-    [roomId, selfPlayer, sendChatWs],
+    [roomId, sendChatWs],
   )
 
   const handleResign = useCallback(() => {
