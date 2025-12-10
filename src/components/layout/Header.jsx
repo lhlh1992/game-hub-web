@@ -7,6 +7,14 @@ import { leaveRoom } from '../../services/api/gameApi.js'
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 const BELL_ICON = '/images/bell.svg'
 
+// 为头像 URL 添加一次性 cache-bust，避免浏览器缓存旧头像
+const withCacheBust = (url, version) => {
+  if (!url) return url
+  const v = version || Date.now()
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}_=${v}`
+}
+
 const Header = () => {
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading, login, logout } = useAuth()
@@ -17,7 +25,11 @@ const Header = () => {
 
   const displayName = useMemo(() => user?.nickname?.trim() || user?.username || '玩家', [user])
 
-  const avatarUrl = useMemo(() => user?.avatarUrl?.trim() || DEFAULT_AVATAR, [user])
+  const avatarUrl = useMemo(() => {
+    const avatarVersion = user?.updatedAt || user?.avatarUpdatedAt || user?.lastModifiedAt || Date.now()
+    const raw = user?.avatarUrl?.trim()
+    return withCacheBust(raw, avatarVersion) || DEFAULT_AVATAR
+  }, [user])
 
   useEffect(() => {
     document.body.classList.toggle('profile-drawer-open', drawerOpen)

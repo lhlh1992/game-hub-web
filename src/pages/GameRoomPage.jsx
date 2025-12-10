@@ -73,6 +73,14 @@ const DEFAULT_OPPONENT = {
   isActive: false,
 }
 
+// 为头像 URL 添加一次性 cache-bust，避免浏览器缓存旧头像
+const withCacheBust = (url, version) => {
+  if (!url) return url
+  const v = version || Date.now()
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}_=${v}`
+}
+
 const GameRoomPage = () => {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -356,15 +364,17 @@ const GameRoomPage = () => {
 
   useEffect(() => {
     if (!user) return
+    const avatarVersion = user?.updatedAt || user?.avatarUpdatedAt || user?.lastModifiedAt || Date.now()
+    const avatarSrc = withCacheBust(user.avatarUrl?.trim(), avatarVersion) || DEFAULT_AVATAR
     setSelfPlayer((prev) => ({
       ...prev,
       name: user.nickname?.trim() || user.username || prev.name,
-      avatar: user.avatarUrl?.trim() || DEFAULT_AVATAR,
+      avatar: avatarSrc,
       isOwner: isOwner ?? false,
     }))
     // 缓存当前用户完整档案，便于聊天/头像展示兜底
     if (user?.userId) {
-      upsertUserInfos([user])
+      upsertUserInfos([{ ...user, avatarUrl: avatarSrc }])
     }
   }, [user, isOwner, upsertUserInfos])
 
@@ -387,12 +397,14 @@ const GameRoomPage = () => {
        prevUser.avatarUrl !== user.avatarUrl)
     
     if (userInfoChanged) {
+      const avatarVersion = user?.updatedAt || user?.avatarUpdatedAt || user?.lastModifiedAt || Date.now()
+      const avatarSrc = withCacheBust(user.avatarUrl?.trim(), avatarVersion) || DEFAULT_AVATAR
       // 用户信息已更新，直接更新本地缓存（不调用后端接口）
       // 因为后端 Redis 缓存已经通过 updateProfile 更新了
       // 下次getRoomView 返回的快照会包含最新的用户信息
       // 这里只更新本地缓存，确保前端显示立即更新
       if (user?.userId) {
-        upsertUserInfos([user])
+        upsertUserInfos([{ ...user, avatarUrl: avatarSrc }])
       }
     }
     
