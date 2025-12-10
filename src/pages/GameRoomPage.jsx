@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
 import { getOngoingGame, leaveRoom, getUserInfo, getRoomView } from '../services/api/gameApi.js'
+import { getRoomChatHistory } from '../services/api/chatApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
 import { useChatRoomWs } from '../hooks/useChatRoomWs.js'
 import { ROOM_MESSAGES } from '../i18n/index.js'
@@ -79,6 +80,24 @@ const withCacheBust = (url, version) => {
   const v = version || Date.now()
   const sep = url.includes('?') ? '&' : '?'
   return `${url}${sep}_=${v}`
+}
+
+// 将历史消息映射为前端展示格式
+const mapHistoryMessage = (msg, currentUserId, resolveDisplayName) => {
+  if (!msg) return null
+  const { senderId, senderName, content, timestamp } = msg
+  const isSelf = senderId && String(senderId) === String(currentUserId)
+  const type = isSelf ? 'player1' : 'player2'
+  const displayName = resolveDisplayName(senderId, senderName)
+  return {
+    id: `hist-${timestamp || Date.now()}-${senderId || Math.random()}`,
+    type,
+    senderId: senderId ? String(senderId) : undefined,
+    senderName: displayName,
+    contentRaw: content || '',
+    text: `${displayName}: ${content || ''}`,
+    timestamp,
+  }
 }
 
 const GameRoomPage = () => {
@@ -216,6 +235,35 @@ const GameRoomPage = () => {
   const [systemMessages, setSystemMessages] = useState(systemBootstrapMessages)
   const [chatHistory, setChatHistory] = useState(INITIAL_CHAT_MESSAGES)
   const [chatError, setChatError] = useState(null)
+
+  // 房间聊天历史：进入房间时拉取最近 50 条
+  useEffect(() => {
+    if (!roomId) {
+      setChatHistory(INITIAL_CHAT_MESSAGES)
+      return
+    }
+    let cancelled = false
+    // 先清空再加载，避免跨房间串消息
+    setChatHistory(INITIAL_CHAT_MESSAGES)
+    ;(async () => {
+      try {
+        const history = await getRoomChatHistory(roomId, 50)
+        if (cancelled) return
+        if (!history || history.length === 0) return
+        const mapped = history
+          .map((m) => mapHistoryMessage(m, currentUserId, resolveDisplayName))
+          .filter(Boolean)
+        // 按时间排序
+        mapped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        setChatHistory(mapped)
+      } catch (e) {
+        // 历史获取失败，静默
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [roomId, currentUserId, resolveDisplayName])
 
   // 懒加载用户档案：若收到消息只有 senderId，没有名字，则拉取后端并刷新已收到的消息显示名
   const ensureUserProfile = useCallback(
