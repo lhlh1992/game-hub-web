@@ -193,7 +193,9 @@ const GameRoomPage = () => {
       }
       // 立即显示弹窗，等待用户手动点击确认后再跳转
       setKickedModal({ show: true, reason })
-    }, [])
+      // 刷新进行中对局状态，确保被踢后状态清理
+      refreshOngoing?.()
+    }, [refreshOngoing])
   })
   // 根据 senderId / senderName 解析展示名：senderName > 本地缓存 > 座位信息 > senderId
   const resolveDisplayName = useCallback(
