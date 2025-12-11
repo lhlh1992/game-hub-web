@@ -50,6 +50,13 @@ const DEFAULT_STATUS = {
 
 const TURN_SECONDS = 30
 
+const FRIEND_STATUS = {
+  SELF: 'SELF',
+  NONE: 'NONE',
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+}
+
 const DEFAULT_SELF_PLAYER = {
   name: '玩家',
   avatar: DEFAULT_AVATAR,
@@ -61,7 +68,7 @@ const DEFAULT_SELF_PLAYER = {
   isWinner: false,
   isActive: false,
   isSelf: true,
-  friendStatus: 'self', // self | friend | pending | not_friend
+  friendStatus: FRIEND_STATUS.SELF,
 }
 
 const DEFAULT_OPPONENT = {
@@ -75,7 +82,7 @@ const DEFAULT_OPPONENT = {
   isWinner: false,
   isActive: false,
   isSelf: false,
-  friendStatus: 'not_friend',
+  friendStatus: FRIEND_STATUS.NONE,
 }
 
 // 为头像 URL 添加一次性 cache-bust，避免浏览器缓存旧头像
@@ -625,7 +632,10 @@ const GameRoomPage = () => {
       isWinner: prev.isWinner ?? false,
       isActive: prev.isActive ?? false,
       isOwner: isOpponentOwner ?? false,
-      friendStatus: opponentFriendStatus || prev.friendStatus || 'not_friend',
+      friendStatus:
+        opponentFriendStatus ||
+        prev.friendStatus ||
+        FRIEND_STATUS.NONE,
       isSelf: false,
     }))
   }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId, userInfoCache])
@@ -952,14 +962,33 @@ const GameRoomPage = () => {
   }, [])
 
   // 添加好友（占位实现，后续可接入真实好友申请接口）
-  const handleAddFriend = useCallback((targetUserId, targetName) => {
+  const handleAddFriend = useCallback(async (targetUserId, targetName) => {
     if (!targetUserId) return
-    window.alert(`已发送好友申请给 ${targetName || '对方'}`)
-    setOpponentPlayer((prev) => ({
-      ...prev,
-      friendStatus: 'pending',
-    }))
+    try {
+      await fetch('/api/friends/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId }),
+      })
+      window.alert(`已发送好友申请，等待对方同意`)
+      setOpponentPlayer((prev) => ({
+        ...prev,
+        friendStatus: FRIEND_STATUS.PENDING,
+      }))
+    } catch (e) {
+      window.alert(`发送好友申请失败：${e?.message || '未知错误'}`)
+    }
   }, [])
+
+  const handleOpenChat = useCallback(
+    (targetUserId) => {
+      // 预留：打开聊天气泡或会话
+      if (!targetUserId) return
+      // TODO: 接入全局聊天入口
+      window.dispatchEvent(new CustomEvent('open-private-chat', { detail: { targetUserId } }))
+    },
+    [],
+  )
 
   return (
     <div className="game-room">
@@ -1076,6 +1105,7 @@ const GameRoomPage = () => {
             }
             readyAccent={isPve || opponentReady}
             onAddFriend={handleAddFriend}
+            onOpenChat={handleOpenChat}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>
@@ -1225,7 +1255,111 @@ const PlayerCard = ({
   readyButtonLabel,
   onToggleReady,
   onAddFriend,
+  onOpenChat,
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  const handleMenuToggle = useCallback(() => {
+    setMenuOpen((prev) => !prev)
+  }, [])
+
+  const handleMenuClose = useCallback(() => {
+    setMenuOpen(false)
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [menuOpen])
+
+  const renderFriendMenu = () => {
+    if (player.isSelf || !player.userId || player.name === 'Waiting...') return null
+    const status = player.friendStatus || FRIEND_STATUS.NONE
+
+    const menuItems = []
+    // 查看资料始终可用
+    menuItems.push({
+      key: 'profile',
+      label: '查看资料',
+      disabled: false,
+      onClick: () => {
+        window.dispatchEvent(new CustomEvent('open-profile', { detail: { userId: player.userId } }))
+        handleMenuClose()
+      },
+    })
+
+    if (status === FRIEND_STATUS.ACCEPTED) {
+      menuItems.unshift({
+        key: 'chat',
+        label: '发消息',
+        disabled: false,
+        onClick: () => {
+          onOpenChat && onOpenChat(player.userId)
+          handleMenuClose()
+        },
+      })
+    } else if (status === FRIEND_STATUS.PENDING) {
+      menuItems.push({
+        key: 'pending',
+        label: '已申请',
+        disabled: true,
+        onClick: null,
+      })
+    } else {
+      menuItems.push({
+        key: 'add',
+        label: '+ 加好友',
+        disabled: false,
+        onClick: () => {
+          onAddFriend && onAddFriend(player.userId, player.name)
+          handleMenuClose()
+        },
+      })
+    }
+
+    return (
+      <div className="player-menu-wrapper" ref={menuRef}>
+        <button
+          type="button"
+          className={`player-menu-trigger ${menuOpen ? 'open' : ''}`}
+          title={
+            status === FRIEND_STATUS.ACCEPTED
+              ? '更多操作'
+              : status === FRIEND_STATUS.PENDING
+                ? '好友申请已发送'
+                : '更多操作 / 加好友'
+          }
+          onClick={handleMenuToggle}
+        >
+          <span className="player-menu-trigger-icon">⋯</span>
+        </button>
+        {menuOpen && (
+          <div className="player-menu-popup">
+            {menuItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                disabled={item.disabled}
+                className={`player-menu-item ${item.disabled ? 'disabled' : ''}`}
+                onClick={item.onClick || undefined}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   // 调试逻辑已移除，避免在控制台刷屏
   useEffect(() => {}, [idPrefix, player])
   
@@ -1243,6 +1377,8 @@ const PlayerCard = ({
             <img id={`${idPrefix}Avatar`} src={player.avatar} alt="Avatar" />
             <div className="avatar-glow-ring" />
           </div>
+        {/* 角标菜单：仅对手显示 */}
+        {renderFriendMenu()}
           <div className="player-name-wrapper">
             <div className="player-name" id={`${idPrefix}Name`}>
               {player.name}
@@ -1251,23 +1387,6 @@ const PlayerCard = ({
               <span className="player-owner-badge" title="房主">
                 房主
               </span>
-            )}
-            {/* 好友状态 / 加好友 */}
-            {!player.isSelf && player.userId && player.name !== 'Waiting...' && (
-              <div className="player-friend-row">
-                {player.friendStatus === 'friend' ? (
-                  <span className="player-friend-badge">好友</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="player-add-friend-btn"
-                    disabled={player.friendStatus === 'pending'}
-                    onClick={() => onAddFriend && onAddFriend(player.userId, player.name)}
-                  >
-                    {player.friendStatus === 'pending' ? '已发送' : '加好友'}
-                  </button>
-                )}
-              </div>
             )}
           </div>
         </div>
