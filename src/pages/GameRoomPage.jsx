@@ -60,6 +60,8 @@ const DEFAULT_SELF_PLAYER = {
   countdownProgress: 0,
   isWinner: false,
   isActive: false,
+  isSelf: true,
+  friendStatus: 'self', // self | friend | pending | not_friend
 }
 
 const DEFAULT_OPPONENT = {
@@ -72,6 +74,8 @@ const DEFAULT_OPPONENT = {
   countdownProgress: 0,
   isWinner: false,
   isActive: false,
+  isSelf: false,
+  friendStatus: 'not_friend',
 }
 
 // 为头像 URL 添加一次性 cache-bust，避免浏览器缓存旧头像
@@ -421,6 +425,7 @@ const GameRoomPage = () => {
       name: user.nickname?.trim() || user.username || prev.name,
       avatar: avatarSrc,
       isOwner: isOwner ?? false,
+      userId: user.userId || user.systemUserId || prev.userId,
     }))
     // 缓存当前用户完整档案，便于聊天/头像展示兜底
     if (user?.userId) {
@@ -551,6 +556,7 @@ const GameRoomPage = () => {
     // 优先使用本地缓存（userInfoCache）作为兜底，确保用户信息更新后能立即显示
     let opponentName = 'Waiting...'
     let opponentAvatar = DEFAULT_AVATAR
+    let opponentFriendStatus = null
     const normalizedMode = mode ? String(mode).toUpperCase() : null
     if (normalizedMode === 'PVE') {
       opponentName = 'AI Opponent'
@@ -578,6 +584,10 @@ const GameRoomPage = () => {
           opponentAvatar = String(finalOpponentInfo.avatarUrl).trim()
         } else if (finalOpponentInfo.avatar && String(finalOpponentInfo.avatar).trim()) {
           opponentAvatar = String(finalOpponentInfo.avatar).trim()
+        }
+        // 好友状态（如果后端有返回），否则保留之前的状态
+        if (finalOpponentInfo.friendStatus) {
+          opponentFriendStatus = finalOpponentInfo.friendStatus
         }
       } else {
         // finalOpponentInfo 不存在，说明数据还没加载，保持 'Waiting...'
@@ -615,6 +625,8 @@ const GameRoomPage = () => {
       isWinner: prev.isWinner ?? false,
       isActive: prev.isActive ?? false,
       isOwner: isOpponentOwner ?? false,
+      friendStatus: opponentFriendStatus || prev.friendStatus || 'not_friend',
+      isSelf: false,
     }))
   }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId, userInfoCache])
 
@@ -939,6 +951,16 @@ const GameRoomPage = () => {
     setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
   }, [])
 
+  // 添加好友（占位实现，后续可接入真实好友申请接口）
+  const handleAddFriend = useCallback((targetUserId, targetName) => {
+    if (!targetUserId) return
+    window.alert(`已发送好友申请给 ${targetName || '对方'}`)
+    setOpponentPlayer((prev) => ({
+      ...prev,
+      friendStatus: 'pending',
+    }))
+  }, [])
+
   return (
     <div className="game-room">
       <main className="game-layout">
@@ -1053,6 +1075,7 @@ const GameRoomPage = () => {
                   : `对手 ${opponentReady ? '已准备' : '未准备'}`
             }
             readyAccent={isPve || opponentReady}
+            onAddFriend={handleAddFriend}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>
@@ -1201,6 +1224,7 @@ const PlayerCard = ({
   readyAccent = false,
   readyButtonLabel,
   onToggleReady,
+  onAddFriend,
 }) => {
   // 调试逻辑已移除，避免在控制台刷屏
   useEffect(() => {}, [idPrefix, player])
@@ -1227,6 +1251,23 @@ const PlayerCard = ({
               <span className="player-owner-badge" title="房主">
                 房主
               </span>
+            )}
+            {/* 好友状态 / 加好友 */}
+            {!player.isSelf && player.userId && player.name !== 'Waiting...' && (
+              <div className="player-friend-row">
+                {player.friendStatus === 'friend' ? (
+                  <span className="player-friend-badge">好友</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="player-add-friend-btn"
+                    disabled={player.friendStatus === 'pending'}
+                    onClick={() => onAddFriend && onAddFriend(player.userId, player.name)}
+                  >
+                    {player.friendStatus === 'pending' ? '已发送' : '加好友'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

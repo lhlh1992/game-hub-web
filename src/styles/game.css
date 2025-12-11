@@ -622,6 +622,49 @@
     padding: 0 4px;
 }
 
+.player-friend-row {
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.player-friend-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #059669;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    line-height: 1.2;
+}
+
+.player-add-friend-btn {
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    color: #4f46e5;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1.2;
+}
+
+.player-add-friend-btn:hover:not(:disabled) {
+    border-color: rgba(99, 102, 241, 0.8);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.15);
+    transform: translateY(-1px);
+}
+
+.player-add-friend-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 /* 执子图标容器（在头像右侧，水平排列） */
 .player-side-icon {
     display: flex;

@@ -294,12 +294,20 @@ export async function getUserInfo() {
     return null
   }
 
-  const profile = await fetchSystemUserProfile(token)
-  if (profile) {
-    return profile
+  // 创建/首次登录场景：直接先落库，再取档案，避免先查 404
+  const synced = await syncSystemUser(token)
+
+  // 同步成功后取系统档案
+  let profile = await fetchSystemUserProfile(token)
+  if (!profile && synced) {
+    profile = synced
+  }
+  if (profile?.nickname == null && profile?.username) {
+    profile.nickname = profile.username
   }
 
-  return await fetchGatewayUserProfile(token)
+  // 兜底：从网关获取基础资料（不含本地扩展字段）
+  return profile || (await fetchGatewayUserProfile(token))
 }
 
 async function fetchSystemUserProfile(token) {
@@ -366,6 +374,33 @@ async function fetchSystemUserProfileBasic(token) {
     // 获取用户基本信息失败，静默处理
   }
   return null
+}
+
+async function syncSystemUser(token) {
+  try {
+    const res = await fetch('/system-service/api/users/sync', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (res.status === 401) {
+      handleAuthExpiredResponse(res, '/system-service/api/users/sync 返回 401')
+      return null
+    }
+
+    if (!res.ok) {
+      return null
+    }
+
+    const body = await res.json()
+    const data = body?.data || body
+    return data || null
+  } catch (error) {
+    // 同步失败静默
+    return null
+  }
 }
 
 async function fetchGatewayUserProfile(token) {
