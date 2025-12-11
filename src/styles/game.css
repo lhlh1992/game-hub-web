@@ -764,6 +764,195 @@
     cursor: not-allowed;
 }
 
+/* 资料弹窗 */
+/* 资料悬浮卡片 */
+.profile-pop-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1200;
+}
+
+.profile-pop-card {
+    position: absolute;
+    min-width: 320px;
+    max-width: 380px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(243,246,255,0.96));
+    border: 1px solid rgba(99, 102, 241, 0.12);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+    border-radius: 16px;
+    padding: 16px;
+    pointer-events: auto;
+    animation: popFadeIn 0.18s ease;
+  }
+
+@keyframes popFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.profile-pop-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    cursor: pointer;
+    font-size: 15px;
+    color: #0f172a;
+}
+
+.profile-pop-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.profile-pop-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    border: 3px solid #fff;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+}
+
+.profile-pop-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.profile-pop-id {
+    font-size: 12px;
+    color: #475569;
+    background: #f8fafc;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.profile-pop-bio {
+    font-size: 13px;
+    color: #475569;
+    text-align: center;
+    line-height: 1.5;
+    padding: 0 10px;
+}
+
+.profile-pop-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.profile-pop-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 6px;
+}
+
+.profile-pop-tag {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(15,23,42,0.06);
+    background: #f8fafc;
+    color: #475569;
+}
+
+.profile-pop-tag.primary {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4f46e5;
+    border-color: rgba(79, 70, 229, 0.18);
+}
+
+.profile-pop-tag.warn {
+    background: rgba(248, 180, 0, 0.14);
+    color: #b45309;
+    border-color: rgba(217, 119, 6, 0.24);
+}
+
+.profile-pop-tag.success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #0f766e;
+    border-color: rgba(16, 185, 129, 0.18);
+}
+
+.profile-pop-tags .muted {
+    background: #eef2ff;
+    color: #4338ca;
+    border-color: rgba(79, 70, 229, 0.12);
+}
+
+.profile-pop-stats {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    background: rgba(248, 250, 252, 0.8);
+    border-radius: 12px;
+    border: 1px solid rgba(15,23,42,0.05);
+}
+
+.profile-pop-stat {
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(15,23,42,0.04);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.profile-pop-stat-label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+.profile-pop-stat-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.profile-pop-btn {
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.profile-pop-btn.primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    box-shadow: 0 10px 26px rgba(79, 70, 229, 0.2);
+}
+
+.profile-pop-btn.outline {
+    background: #fff;
+    color: #4f46e5;
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.profile-pop-btn.disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: rgba(148,163,184,0.5);
+    cursor: not-allowed;
+}
 /* 执子图标容器（在头像右侧，水平排列） */
 .player-side-icon {
     display: flex;

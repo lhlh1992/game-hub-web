@@ -129,6 +129,9 @@ const GameRoomPage = () => {
   const pendingUserFetch = useRef(new Set())
   const [forbiddenTipVisible, setForbiddenTipVisible] = useState(false)
   const [messageInfo, setMessageInfo] = useState({ show: false, text: '', type: 'error' })
+  const [profileModal, setProfileModal] = useState({ open: false, user: null, anchor: null })
+  const loggedRoomSnapshotRef = useRef(false)
+  const lastRoomIdRef = useRef(roomId)
   // 批量写入用户档案缓存（忽略空值），用于聊天展示兜底
   const upsertUserInfos = useCallback((infos) => {
     if (!infos || !Array.isArray(infos)) return
@@ -474,6 +477,31 @@ const GameRoomPage = () => {
   }, [user, upsertUserInfos])
 
   useEffect(() => {
+    if (lastRoomIdRef.current !== roomId) {
+      lastRoomIdRef.current = roomId
+      loggedRoomSnapshotRef.current = false
+    }
+  }, [roomId])
+
+  useEffect(() => {
+    if (loggedRoomSnapshotRef.current) return
+    // 输出房间快照关键信息，便于排查 playerId/bio 是否下发
+    console.log('[Room Snapshot]', {
+      roomId,
+      mode,
+      roomPhase,
+      ownerUserId,
+      mySide,
+      currentUserId,
+      seatXUserId,
+      seatOUserId,
+      seatXUserInfo,
+      seatOUserInfo,
+    })
+    loggedRoomSnapshotRef.current = true
+  }, [roomId, mode, roomPhase, ownerUserId, mySide, currentUserId, seatXUserId, seatOUserId, seatXUserInfo, seatOUserInfo])
+
+  useEffect(() => {
     // 如果 mySide 已设置，更新自己的玩家信息
     if (mySide) {
       setSelfPlayer((prev) => ({
@@ -564,6 +592,8 @@ const GameRoomPage = () => {
     let opponentName = 'Waiting...'
     let opponentAvatar = DEFAULT_AVATAR
     let opponentFriendStatus = null
+    let opponentPlayerId = null
+    let opponentBio = null
     const normalizedMode = mode ? String(mode).toUpperCase() : null
     if (normalizedMode === 'PVE') {
       opponentName = 'AI Opponent'
@@ -595,6 +625,13 @@ const GameRoomPage = () => {
         // 好友状态（如果后端有返回），否则保留之前的状态
         if (finalOpponentInfo.friendStatus) {
           opponentFriendStatus = finalOpponentInfo.friendStatus
+        }
+        // 玩家ID、签名
+        if (finalOpponentInfo.playerId) {
+          opponentPlayerId = finalOpponentInfo.playerId
+        }
+        if (finalOpponentInfo.bio || finalOpponentInfo.signature) {
+          opponentBio = finalOpponentInfo.bio || finalOpponentInfo.signature
         }
       } else {
         // finalOpponentInfo 不存在，说明数据还没加载，保持 'Waiting...'
@@ -636,6 +673,8 @@ const GameRoomPage = () => {
         opponentFriendStatus ||
         prev.friendStatus ||
         FRIEND_STATUS.NONE,
+      playerId: opponentPlayerId || prev.playerId,
+      bio: opponentBio || prev.bio,
       isSelf: false,
     }))
   }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId, userInfoCache])
@@ -961,6 +1000,15 @@ const GameRoomPage = () => {
     setKickConfirmModal({ show: false, targetName: '', targetUserId: '' })
   }, [])
 
+  const openProfileModal = useCallback((userInfo, anchor) => {
+    if (!userInfo) return
+    setProfileModal({ open: true, user: userInfo, anchor: anchor || null })
+  }, [])
+
+  const closeProfileModal = useCallback(() => {
+    setProfileModal({ open: false, user: null, anchor: null })
+  }, [])
+
   // 添加好友（占位实现，后续可接入真实好友申请接口）
   const handleAddFriend = useCallback(async (targetUserId, targetName) => {
     if (!targetUserId) return
@@ -1106,6 +1154,7 @@ const GameRoomPage = () => {
             readyAccent={isPve || opponentReady}
             onAddFriend={handleAddFriend}
             onOpenChat={handleOpenChat}
+            onViewProfile={openProfileModal}
           />
           <SystemInfoPanel messages={systemMessages} />
         </div>
@@ -1121,6 +1170,14 @@ const GameRoomPage = () => {
         onConfirm={handleConfirmKick}
         onCancel={handleCancelKick}
         disabled={kicking}
+      />
+      <ProfilePopover
+        open={profileModal.open}
+        user={profileModal.user}
+        anchorEl={profileModal.anchor}
+        onClose={closeProfileModal}
+        onAddFriend={handleAddFriend}
+        onOpenChat={handleOpenChat}
       />
     </div>
   )
@@ -1256,6 +1313,7 @@ const PlayerCard = ({
   onToggleReady,
   onAddFriend,
   onOpenChat,
+  onViewProfile,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -1291,8 +1349,8 @@ const PlayerCard = ({
       key: 'profile',
       label: '查看资料',
       disabled: false,
-      onClick: () => {
-        window.dispatchEvent(new CustomEvent('open-profile', { detail: { userId: player.userId } }))
+      onClick: (_e, anchor) => {
+        onViewProfile && onViewProfile(player, anchor)
         handleMenuClose()
       },
     })
@@ -1350,7 +1408,11 @@ const PlayerCard = ({
                 type="button"
                 disabled={item.disabled}
                 className={`player-menu-item ${item.disabled ? 'disabled' : ''}`}
-                onClick={item.onClick || undefined}
+                onClick={(e) => {
+                  if (item.onClick) {
+                    item.onClick(e, menuRef.current)
+                  }
+                }}
               >
                 {item.label}
               </button>
@@ -1971,8 +2033,118 @@ const GomokuBoard = ({ grid, lastMove, winLines, onCellClick }) => {
   )
 }
 
+// 资料弹窗（右侧轻量卡片） - 已废弃，改为悬浮卡片
+
 function makeEmptyGrid(size = BOARD_SIZE) {
   return Array.from({ length: size }, () => Array(size).fill('.'))
+}
+
+// 资料浮层（悬浮卡片，不占全屏）
+const ProfilePopover = ({ open, user, anchorEl, onClose, onAddFriend, onOpenChat }) => {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target) && (!anchorEl || !anchorEl.contains(e.target))) {
+        onClose?.()
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open, anchorEl, onClose])
+
+  if (!open || !user) return null
+
+  const status = user.friendStatus || FRIEND_STATUS.NONE
+  const name = user.name || user.nickname || '玩家'
+  const avatar = user.avatar || user.avatarUrl || DEFAULT_AVATAR
+  const subtitle = user.bio || user.signature || ''
+  const idText = user.playerId || user.userId || ''
+  const sideLabel = '' // 不显示执子
+  const onlineText = '' // 不显示在线状态
+  const totalMatches = user.totalMatches || user.matchCount || user.matches || null
+  const winRate = user.winRate != null ? user.winRate : null
+  const winCount = user.winCount != null ? user.winCount : null
+  const loseCount = user.loseCount != null ? user.loseCount : null
+  const drawCount = user.drawCount != null ? user.drawCount : null
+
+  const renderAction = () => {
+    if (status === FRIEND_STATUS.ACCEPTED) {
+      return (
+        <button className="profile-pop-btn primary" onClick={() => onOpenChat && onOpenChat(user.userId)}>
+          发消息
+        </button>
+      )
+    }
+    if (status === FRIEND_STATUS.PENDING) {
+      return (
+        <button className="profile-pop-btn disabled" disabled>
+          已申请
+        </button>
+      )
+    }
+    return (
+      <button className="profile-pop-btn outline" onClick={() => onAddFriend && onAddFriend(user.userId, name)}>
+        + 加好友
+      </button>
+    )
+  }
+
+  const computeStyle = () => {
+    if (anchorEl && typeof window !== 'undefined') {
+      const rect = anchorEl.getBoundingClientRect()
+      const top = rect.top + window.scrollY
+      const left = rect.right + 12 + window.scrollX
+      return { top: `${top}px`, left: `${left}px` }
+    }
+    // fallback 居中
+    return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+  }
+
+  return (
+    <div className="profile-pop-overlay">
+      <div className="profile-pop-card" ref={ref} style={computeStyle()}>
+        <button className="profile-pop-close" onClick={onClose} aria-label="关闭资料">
+          ×
+        </button>
+        <div className="profile-pop-hero">
+          <div className="profile-pop-avatar" style={{ backgroundImage: `url('${avatar}')` }} />
+          <div className="profile-pop-name">{name}</div>
+          {idText && <div className="profile-pop-id">玩家ID: {idText}</div>}
+          {subtitle && <div className="profile-pop-bio">{subtitle}</div>}
+          <div className="profile-pop-tags">
+            {sideLabel && <span className="profile-pop-tag muted">{sideLabel}</span>}
+            {status === FRIEND_STATUS.ACCEPTED && <span className="profile-pop-tag primary">好友</span>}
+            {status === FRIEND_STATUS.PENDING && <span className="profile-pop-tag warn">申请中</span>}
+          </div>
+        </div>
+        <div className="profile-pop-stats">
+          <div className="profile-pop-stat">
+            <div className="profile-pop-stat-label">对局</div>
+            <div className="profile-pop-stat-value">{totalMatches != null ? totalMatches : '--'}</div>
+          </div>
+          <div className="profile-pop-stat">
+            <div className="profile-pop-stat-label">胜率</div>
+            <div className="profile-pop-stat-value">
+              {winRate != null ? `${Math.round(winRate * 100)}%` : '--'}
+            </div>
+          </div>
+          <div className="profile-pop-stat">
+            <div className="profile-pop-stat-label">胜 / 负</div>
+            <div className="profile-pop-stat-value">
+              {winCount != null ? winCount : '--'} / {loseCount != null ? loseCount : '--'}
+            </div>
+          </div>
+          <div className="profile-pop-stat">
+            <div className="profile-pop-stat-label">平局</div>
+            <div className="profile-pop-stat-value">{drawCount != null ? drawCount : '--'}</div>
+          </div>
+        </div>
+        <div className="profile-pop-actions">{renderAction()}</div>
+      </div>
+    </div>
+  )
 }
 
 export default GameRoomPage
