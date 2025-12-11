@@ -71,6 +71,8 @@ const Header = () => {
     }
   }
 
+  const playerId = useMemo(() => user?.playerId || user?.displayId || user?.username || '--', [user])
+
   return (
     <div data-component="global-header">
       <header className="gh-header">
@@ -127,7 +129,7 @@ const Header = () => {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         displayName={displayName}
-        username={user?.username}
+        playerId={playerId}
         avatarUrl={avatarUrl}
         onLogout={handleLogout}
       />
@@ -135,7 +137,7 @@ const Header = () => {
   )
 }
 
-const ProfileDrawer = ({ open, onClose, displayName, username, avatarUrl, onLogout }) => {
+const ProfileDrawer = ({ open, onClose, displayName, playerId, avatarUrl, onLogout }) => {
   return (
     <div className={`profile-drawer ${open ? 'is-visible' : ''}`} data-profile-drawer="">
       <div className="profile-drawer__overlay" onClick={onClose} />
@@ -146,7 +148,7 @@ const ProfileDrawer = ({ open, onClose, displayName, username, avatarUrl, onLogo
         <div className="profile-drawer__hero">
           <div className="profile-drawer__avatar" style={{ backgroundImage: `url('${avatarUrl}')` }} />
           <div className="profile-drawer__name">{displayName}</div>
-          <div className="profile-drawer__id">{username}</div>
+          <div className="profile-drawer__id">玩家ID：{playerId}</div>
         </div>
         <div className="profile-drawer__actions">
           <button type="button" className="profile-drawer__action">
@@ -156,7 +158,7 @@ const ProfileDrawer = ({ open, onClose, displayName, username, avatarUrl, onLogo
             消息中心
           </button>
           <Link to="/profile" className="profile-drawer__action" onClick={onClose}>
-            个人资料
+            个人中心
           </Link>
           <button type="button" className="profile-drawer__action" onClick={onLogout}>
             退出登录

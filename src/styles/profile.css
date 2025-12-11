@@ -1,125 +1,889 @@
 /* ============================================
-   个人资料页面样式 - 2024-2025 潮流设计
+   个人中心页面 - 游戏平台面板风格
+   紧凑、层次清晰、模块化
    ============================================ */
 
-/* CSS 变量定义 */
-.profile-page {
-  /* 暖色系主色调 */
-  --gh-primary: #FF6B6B;
-  --gh-primary-light: #FF8E53;
-  --gh-primary-dark: #FF5252;
-  
-  /* 背景色 */
-  --gh-bg-start: #FFF5E6;
-  --gh-bg-end: #FFFFFF;
-  
-  /* 卡片 - Glassmorphism 风格 */
-  --gh-card-bg: rgba(255, 255, 255, 0.7);
-  --gh-card-border: rgba(255, 255, 255, 0.3);
-  --gh-card-shadow: rgba(255, 107, 107, 0.15);
-  
-  /* 文字 */
-  --gh-text: #1a1a1a;
-  --gh-text-muted: #6b7280;
-  --gh-text-light: #9ca3af;
-  
-  /* 状态色 */
-  --gh-success: #10b981;
-  --gh-danger: #ef4444;
-  
-  /* 尺寸 */
-  --radius-card: 24px;
-  --radius-button: 12px;
-  --radius-small: 16px;
-  
-  /* 阴影 - 更柔和的现代阴影 */
-  --shadow-card: 
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --shadow-card-hover: 
-    0 12px 48px rgba(0, 0, 0, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
-  --shadow-button: 
-    0 4px 16px rgba(255, 107, 107, 0.3),
-    0 2px 8px rgba(255, 107, 107, 0.2);
-  --shadow-button-hover: 
-    0 8px 24px rgba(255, 107, 107, 0.4),
-    0 4px 12px rgba(255, 107, 107, 0.3);
-  
-  /* 动画 */
-  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.profile-page {
-  min-height: calc(100vh - 80px);
-  padding: 36px 16px;
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(255, 183, 166, 0.3), transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.2), transparent 50%),
-    linear-gradient(135deg, var(--gh-bg-start) 0%, var(--gh-bg-end) 100%);
-  background-attachment: fixed;
-  box-sizing: border-box;
-  position: relative;
-}
-
-.profile-page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: 
-    radial-gradient(circle at 10% 20%, rgba(255, 107, 107, 0.05), transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(167, 139, 250, 0.05), transparent 40%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.profile-container {
-  max-width: 860px;
+.profile-center-container {
+  max-width: 72rem; /* max-w-6xl */
   margin: 0 auto;
-  background: var(--gh-card-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  padding: 2rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* mt-6 equivalent */
+}
+
+/* ============================================
+   1. 顶部：玩家信息卡片
+   ============================================ */
+.profile-player-info-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fef7f0 100%);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-player-info-card:hover {
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.1),
+    0 6px 20px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.profile-player-info-content {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.profile-player-avatar-section {
+  flex-shrink: 0;
+}
+
+.profile-player-avatar-large {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-color: #f0f0f0;
+  border: 6px solid rgba(255, 255, 255, 1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-player-avatar-large:hover {
+  transform: scale(1.05);
+  box-shadow: 
+    0 12px 40px rgba(255, 107, 107, 0.2),
+    0 6px 20px rgba(255, 107, 107, 0.15);
+}
+
+.profile-player-info-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.profile-player-name-large {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.profile-player-id-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.75rem;
+  width: fit-content;
+}
+
+.profile-player-id-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-player-id-code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.8125rem;
+  color: #1a1a1a;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+  letter-spacing: 0.3px;
+}
+
+.profile-player-id-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
-  border: 1px solid var(--gh-card-border);
-  box-sizing: border-box;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1.5px solid rgba(255, 107, 107, 0.15);
+  border-radius: 0.5rem;
+  color: #FF6B6B;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-player-id-copy-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  border-color: rgba(255, 107, 107, 0.3);
+  transform: scale(1.1);
+  color: #FF5252;
+}
+
+.profile-player-bio-text {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+  font-style: italic;
+  max-width: 600px;
+}
+
+.profile-player-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-player-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.75rem;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+  color: white;
+  border: none;
+  border-radius: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 6px 20px rgba(255, 107, 107, 0.35),
+    0 2px 8px rgba(255, 107, 107, 0.25);
+  letter-spacing: 0.3px;
+}
+
+.profile-player-edit-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 10px 28px rgba(255, 107, 107, 0.4),
+    0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.profile-player-edit-button:active {
+  transform: translateY(0);
+}
+
+.profile-player-friends-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.75rem;
+  background: transparent;
+  color: #FF6B6B;
+  border: 2px solid rgba(255, 107, 107, 0.3);
+  border-radius: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+}
+
+.profile-player-friends-button:hover {
+  background: rgba(255, 107, 107, 0.05);
+  border-color: rgba(255, 107, 107, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(255, 107, 107, 0.2),
+    0 2px 8px rgba(255, 107, 107, 0.15);
+}
+
+.profile-player-friends-button:active {
+  transform: translateY(0);
+}
+
+/* ============================================
+   2. 我的游戏数据
+   ============================================ */
+.profile-stats-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-stats-card:hover {
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.profile-stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+}
+
+.profile-stats-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.profile-stats-badge {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 0.25rem 0.75rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 0.5rem;
+  letter-spacing: 0.3px;
+}
+
+/* ============================================
+   我的游戏数据 - 现代化设计
+   ============================================ */
+.profile-stats-card-modern {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.06),
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-stats-card-modern:hover {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.profile-stats-header-modern {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+}
+
+.profile-stats-title-modern {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #4b5563 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.profile-stats-badge-modern {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6b7280;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.04));
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.5rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 游戏卡片网格 */
+.profile-game-cards-grid-modern {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+/* 游戏卡片样式已移至 GameCard.css */
+
+/* 空状态优化 */
+.profile-empty-container-modern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.25rem;
+  text-align: center;
+}
+
+.profile-empty-icon-modern {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.2;
+  filter: grayscale(0.5);
+  line-height: 1;
+}
+
+.profile-empty-title-modern {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0 0 0.75rem 0;
+  letter-spacing: -0.3px;
+}
+
+.profile-empty-desc-modern {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0;
+  opacity: 0.8;
+  font-weight: 500;
+  max-width: 400px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .profile-game-cards-grid-modern {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .profile-stats-card-modern {
+    padding: 1.5rem;
+  }
+
+  .profile-game-card-modern {
+    padding: 1.5rem;
+  }
+
+  .profile-game-card-stat-number {
+    font-size: 1.75rem;
+  }
+}
+
+.profile-game-stat-item {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.01) 0%, rgba(0, 0, 0, 0.02) 100%);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
   position: relative;
-  z-index: 1;
   overflow: hidden;
 }
 
-.profile-container::before {
+.profile-game-stat-item::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 160px;
-  background: linear-gradient(135deg, 
-    rgba(255, 107, 107, 0.1) 0%, 
-    rgba(255, 142, 83, 0.08) 50%,
-    rgba(167, 139, 250, 0.06) 100%);
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-  pointer-events: none;
+  height: 4px;
+  background: linear-gradient(90deg, #FF6B6B, #FF8E53, #A78BFA);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-game-stat-item:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.04) 0%, rgba(255, 142, 83, 0.02) 100%);
+  border-color: rgba(255, 107, 107, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(255, 107, 107, 0.15);
+}
+
+.profile-game-stat-item:hover::before {
+  transform: scaleX(1);
+}
+
+.profile-game-stat-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-game-stat-icon-wrapper {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(255, 142, 83, 0.12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(255, 107, 107, 0.2);
+}
+
+.profile-game-stat-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-game-stat-icon-placeholder {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #FF6B6B;
+}
+
+.profile-game-stat-title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-game-stat-name {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.3px;
+}
+
+.profile-game-stat-type {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.03);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.profile-game-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-game-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.profile-game-stat-row:last-child {
+  border-bottom: none;
+}
+
+.profile-game-stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.profile-game-stat-value-large {
+  font-size: 1.125rem;
+  color: #1a1a1a;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.profile-game-stat-value {
+  font-size: 0.9375rem;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.profile-game-stat-detail-btn {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.08), rgba(255, 142, 83, 0.06));
+  color: #FF6B6B;
+  border: 2px solid rgba(255, 107, 107, 0.25);
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.2px;
+}
+
+.profile-game-stat-detail-btn:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.12), rgba(255, 142, 83, 0.1));
+  border-color: rgba(255, 107, 107, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(255, 107, 107, 0.25),
+    0 2px 8px rgba(255, 107, 107, 0.15);
+}
+
+/* ============================================
+   3. 最近对局
+   ============================================ */
+.profile-matches-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-matches-card:hover {
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.profile-matches-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+}
+
+.profile-matches-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.profile-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile-match-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.01) 0%, rgba(0, 0, 0, 0.02) 100%);
+  border-radius: 1rem;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.profile-match-row:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.04) 0%, rgba(255, 142, 83, 0.02) 100%);
+  border-color: rgba(255, 107, 107, 0.3);
+  transform: translateX(8px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(255, 107, 107, 0.15);
+}
+
+.profile-match-icon-wrapper {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.875rem;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(255, 142, 83, 0.12));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-match-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-match-icon-placeholder {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #FF6B6B;
+}
+
+.profile-match-info-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-match-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-match-game-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.2px;
+}
+
+.profile-match-result-badge {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+.profile-match-result-win {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
+  color: #10b981;
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+}
+
+.profile-match-result-lose {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
+  color: #ef4444;
+  border: 1.5px solid rgba(239, 68, 68, 0.25);
+}
+
+.profile-match-result-draw {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.15), rgba(107, 114, 128, 0.1));
+  color: #6b7280;
+  border: 1.5px solid rgba(107, 114, 128, 0.25);
+}
+
+.profile-match-result-unknown {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1.5px solid rgba(107, 114, 128, 0.2);
+}
+
+.profile-match-details-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.profile-match-opponent {
+  font-weight: 600;
+}
+
+.profile-match-separator {
+  opacity: 0.3;
+}
+
+.profile-match-time,
+.profile-match-duration {
+  opacity: 0.8;
+}
+
+/* ============================================
+   4. 好友入口卡片
+   ============================================ */
+.profile-friends-entry-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.75rem;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(255, 142, 83, 0.04));
+  border: 2px solid rgba(255, 107, 107, 0.2);
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-friends-entry-card:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.1), rgba(255, 142, 83, 0.08));
+  border-color: rgba(255, 107, 107, 0.35);
+  transform: translateX(8px);
+  box-shadow: 
+    0 8px 24px rgba(255, 107, 107, 0.2),
+    0 4px 12px rgba(255, 107, 107, 0.15);
+}
+
+.profile-friends-entry-icon {
+  color: #FF6B6B;
+  flex-shrink: 0;
+}
+
+.profile-friends-entry-text {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.2px;
+}
+
+.profile-friends-entry-arrow {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   空状态和加载状态
+   ============================================ */
+.profile-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.25rem;
+  gap: 1.5rem;
+  color: #6b7280;
+}
+
+.profile-loading-spinner {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 5px solid rgba(255, 107, 107, 0.1);
+  border-top-color: #FF6B6B;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.profile-loading-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0;
+}
+
+.profile-empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.25rem;
+  text-align: center;
+}
+
+.profile-empty-icon-large {
+  font-size: 4.5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.25;
+  filter: grayscale(0.5);
+  line-height: 1;
+}
+
+.profile-empty-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0 0 0.75rem 0;
+  letter-spacing: -0.3px;
+}
+
+.profile-empty-desc {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0;
+  opacity: 0.8;
+  font-weight: 500;
+  max-width: 400px;
+}
+
+/* ============================================
+   响应式设计
+   ============================================ */
+@media (max-width: 768px) {
+  .profile-center-container {
+    padding: 1.5rem 1rem 2rem;
+    gap: 1.25rem;
+  }
+
+  .profile-player-info-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+  }
+
+  .profile-player-info-section {
+    align-items: center;
+  }
+
+  .profile-player-id-section {
+    margin: 0 auto;
+  }
+
+  .profile-player-actions {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .profile-player-edit-button,
+  .profile-player-friends-button {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .profile-stats-card,
+  .profile-matches-card {
+    padding: 1.5rem;
+  }
+
+  /* 响应式网格布局已通过 Tailwind 类实现，无需额外样式 */
+
+  .profile-match-row {
+    padding: 0.875rem 1rem;
+  }
+}
+
+/* ============================================
+   编辑页面样式（保留原有功能）
+   ============================================ */
+.profile-page {
+  min-height: calc(100vh - 80px);
+  padding: 2.5rem 0;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(255, 183, 166, 0.15), transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.1), transparent 50%),
+    linear-gradient(135deg, #f8fafb 0%, #ffffff 100%);
+  background-attachment: fixed;
+}
+
+.profile-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .profile-header {
   text-align: center;
-  padding: 36px 40px 28px;
+  padding: 2.5rem 2.5rem 2rem;
   position: relative;
   z-index: 1;
 }
 
 .profile-title {
-  font-size: 34px;
-  font-weight: 800;
-  color: var(--gh-text);
-  margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--gh-primary) 0%, var(--gh-primary-light) 50%, var(--gh-primary-dark) 100%);
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FF5252 100%);
   background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -134,40 +898,17 @@
 }
 
 .profile-subtitle {
-  font-size: 14px;
-  color: var(--gh-text-muted);
+  font-size: 0.9375rem;
+  color: #6b7280;
   margin: 0;
   font-weight: 500;
 }
 
-.profile-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  gap: 20px;
-}
-
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid rgba(255, 107, 107, 0.1);
-  border-top-color: var(--gh-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* 表单样式 */
 .profile-form {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 0 36px 32px;
+  padding: 0 2.5rem 2.5rem;
   position: relative;
   z-index: 1;
 }
@@ -175,8 +916,8 @@
 .profile-section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px 0;
+  gap: 1rem;
+  padding: 2rem 0;
   border-bottom: 1px solid rgba(255, 107, 107, 0.08);
 }
 
@@ -185,54 +926,33 @@
 }
 
 .profile-section-label {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--gh-text);
-  margin: 0;
-  letter-spacing: 0.3px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #6b7280;
+  margin: 0 0 0.25rem 0;
   text-transform: uppercase;
-  font-size: 12px;
-  color: var(--gh-text-muted);
-  margin-bottom: 2px;
+  letter-spacing: 0.8px;
 }
 
-/* 头像上传区域 - 现代化设计 */
 .avatar-upload-area {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.4);
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(10px);
-  border-radius: var(--radius-small);
-  border: 2px dashed rgba(255, 107, 107, 0.2);
-  transition: all var(--transition-smooth);
-  position: relative;
-  overflow: hidden;
-}
-
-.avatar-upload-area::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, 
-    rgba(255, 107, 107, 0.05) 0%, 
-    rgba(255, 142, 83, 0.03) 100%);
-  opacity: 0;
-  transition: opacity var(--transition-normal);
+  border-radius: 1rem;
+  border: 2px dashed rgba(255, 107, 107, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .avatar-upload-area:hover {
-  border-color: var(--gh-primary);
-  background: rgba(255, 255, 255, 0.6);
+  border-color: #FF6B6B;
+  background: rgba(255, 255, 255, 0.7);
   transform: translateY(-2px);
   box-shadow: 
-    0 8px 24px rgba(255, 107, 107, 0.15),
-    0 2px 8px rgba(255, 107, 107, 0.1);
-}
-
-.avatar-upload-area:hover::before {
-  opacity: 1;
+    0 12px 32px rgba(255, 107, 107, 0.15),
+    0 4px 12px rgba(255, 107, 107, 0.1);
 }
 
 .avatar-preview {
@@ -242,66 +962,41 @@
   background-size: cover;
   background-position: center;
   background-color: #f5f5f5;
-  border: 5px solid rgba(255, 255, 255, 0.8);
+  border: 6px solid rgba(255, 255, 255, 0.9);
   position: relative;
   flex-shrink: 0;
-  transition: all var(--transition-smooth);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 
-    0 8px 24px rgba(0, 0, 0, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.05),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+    0 12px 32px rgba(0, 0, 0, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.08);
   cursor: pointer;
 }
 
 .avatar-preview:hover {
   transform: scale(1.08) rotate(2deg);
-  border-color: var(--gh-primary);
-  box-shadow: 
-    0 12px 32px rgba(255, 107, 107, 0.25),
-    0 4px 12px rgba(255, 107, 107, 0.15),
-    inset 0 0 0 2px rgba(255, 255, 255, 1);
-}
-
-.avatar-preview::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
-  border: 2px solid var(--gh-primary);
-  opacity: 0;
-  transition: opacity var(--transition-normal);
-}
-
-.avatar-preview:hover::after {
-  opacity: 0.3;
+  border-color: #FF6B6B;
 }
 
 .avatar-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53);
   color: white;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
-  padding: 5px 12px;
-  border-radius: 20px;
+  padding: 0.375rem 0.875rem;
+  border-radius: 1.25rem;
   box-shadow: 
-    0 4px 12px rgba(255, 107, 107, 0.4),
+    0 6px 16px rgba(255, 107, 107, 0.4),
     0 0 0 3px rgba(255, 255, 255, 0.9);
   z-index: 2;
-  animation: pulse 2s ease infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
 }
 
 .avatar-upload-controls {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.625rem;
   flex: 1;
   min-width: 0;
 }
@@ -314,69 +1009,53 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53);
   color: white;
-  border-radius: var(--radius-button);
-  font-size: 14px;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all var(--transition-normal);
-  box-shadow: var(--shadow-button);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 6px 20px rgba(255, 107, 107, 0.35),
+    0 2px 8px rgba(255, 107, 107, 0.25);
   width: fit-content;
   border: none;
-  position: relative;
-  overflow: hidden;
-}
-
-.avatar-upload-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
-  opacity: 0;
-  transition: opacity var(--transition-normal);
 }
 
 .avatar-upload-btn:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-button-hover);
-}
-
-.avatar-upload-btn:hover::before {
-  opacity: 1;
-}
-
-.avatar-upload-btn:active {
-  transform: translateY(0);
+  box-shadow: 
+    0 10px 28px rgba(255, 107, 107, 0.4),
+    0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
 .avatar-hint {
-  font-size: 13px;
-  color: var(--gh-text-muted);
+  font-size: 0.8125rem;
+  color: #6b7280;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* 表单网格 - Bento 风格 */
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.625rem;
   min-width: 0;
 }
 
 .form-group label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--gh-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1a1a1a;
   letter-spacing: 0.2px;
 }
 
@@ -384,15 +1063,15 @@
 .form-group textarea,
 .form-group select {
   width: 100%;
-  padding: 14px 16px;
+  padding: 0.875rem 1.125rem;
   border: 2px solid rgba(255, 107, 107, 0.15);
-  border-radius: var(--radius-button);
-  font-size: 15px;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
   font-family: inherit;
-  color: var(--gh-text);
-  background: rgba(255, 255, 255, 0.6);
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
-  transition: all var(--transition-normal);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.04),
@@ -400,29 +1079,23 @@
   box-sizing: border-box;
 }
 
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-  color: var(--gh-text-light);
-  opacity: 0.6;
-}
-
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
-  border-color: var(--gh-primary);
+  border-color: #FF6B6B;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 
     0 0 0 4px rgba(255, 107, 107, 0.1),
-    0 4px 16px rgba(255, 107, 107, 0.15),
+    0 6px 20px rgba(255, 107, 107, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 1);
   transform: translateY(-1px);
 }
 
 .form-group textarea {
   resize: vertical;
-  min-height: 110px;
+  min-height: 120px;
   font-family: inherit;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .form-group select {
@@ -430,37 +1103,26 @@
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%23FF6B6B' d='M7 10L2 5h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 18px center;
-  padding-right: 48px;
+  background-position: right 1.125rem center;
+  padding-right: 3rem;
 }
 
 .form-hint {
-  font-size: 12px;
-  color: var(--gh-text-muted);
+  font-size: 0.75rem;
+  color: #6b7280;
   text-align: right;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* 消息提示 - 现代化设计 */
 .profile-message {
-  padding: 14px 18px;
-  border-radius: var(--radius-button);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
   text-align: center;
   animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   backdrop-filter: blur(10px);
-  border: 1px solid;
-  position: relative;
-  overflow: hidden;
-}
-
-.profile-message::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent);
-  pointer-events: none;
+  border: 2px solid;
 }
 
 @keyframes slideIn {
@@ -476,32 +1138,32 @@
 
 .profile-message--error {
   background: rgba(239, 68, 68, 0.1);
-  color: var(--gh-danger);
+  color: #ef4444;
   border-color: rgba(239, 68, 68, 0.2);
 }
 
 .profile-message--success {
   background: rgba(16, 185, 129, 0.1);
-  color: var(--gh-success);
+  color: #10b981;
   border-color: rgba(16, 185, 129, 0.2);
 }
 
-/* 顶部轻量 Toast（自动消失） */
 .toast {
   position: fixed;
-  top: 28px;
+  top: 2rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;
-  padding: 12px 18px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
   color: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: toastIn 0.25s ease, toastOut 0.35s ease 2.4s forwards;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  animation: toastIn 0.3s ease, toastOut 0.4s ease 2.5s forwards;
   pointer-events: none;
 }
 
@@ -516,7 +1178,7 @@
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-8px);
+    transform: translateX(-50%) translateY(-10px);
   }
   to {
     opacity: 1;
@@ -531,52 +1193,41 @@
   }
   to {
     opacity: 0;
-    transform: translateX(-50%) translateY(-6px);
+    transform: translateX(-50%) translateY(-8px);
   }
 }
 
-/* 提交按钮 - 现代化设计 */
 .profile-actions {
   display: flex;
   justify-content: center;
-  padding-top: 20px;
-  margin-top: 8px;
-  border-top: 1px solid rgba(255, 107, 107, 0.1);
+  gap: 1rem;
+  padding-top: 1.5rem;
+  margin-top: 0.75rem;
+  border-top: 2px solid rgba(255, 107, 107, 0.1);
 }
 
 .profile-submit-btn {
-  padding: 14px 36px;
-  background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+  padding: 1rem 2.5rem;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E53);
   color: white;
   border: none;
-  border-radius: var(--radius-button);
-  font-size: 16px;
-  font-weight: 700;
+  border-radius: 0.875rem;
+  font-size: 1rem;
+  font-weight: 800;
   cursor: pointer;
-  transition: all var(--transition-smooth);
-  box-shadow: var(--shadow-button);
-  min-width: 150px;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.5px;
-}
-
-.profile-submit-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
-  opacity: 0;
-  transition: opacity var(--transition-normal);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 8px 24px rgba(255, 107, 107, 0.35),
+    0 4px 12px rgba(255, 107, 107, 0.25);
+  min-width: 160px;
+  letter-spacing: 0.3px;
 }
 
 .profile-submit-btn:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-button-hover);
-}
-
-.profile-submit-btn:hover:not(:disabled)::before {
-  opacity: 1;
+  box-shadow: 
+    0 12px 32px rgba(255, 107, 107, 0.4),
+    0 6px 16px rgba(255, 107, 107, 0.3);
 }
 
 .profile-submit-btn:active:not(:disabled) {
@@ -589,56 +1240,51 @@
   transform: none;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .profile-page {
-    padding: 24px 12px;
-  }
+.profile-cancel-btn {
+  padding: 1rem 2.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  color: #1a1a1a;
+  border: 2px solid rgba(255, 107, 107, 0.2);
+  border-radius: 0.875rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 160px;
+}
 
-  .profile-container {
-    border-radius: 20px;
-  }
+.profile-cancel-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 107, 107, 0.3);
+  transform: translateY(-2px);
+}
 
-  .profile-header {
-    padding: 28px 20px 24px;
-  }
+.profile-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-  .profile-title {
-    font-size: 28px;
-  }
-
-  .profile-subtitle {
-    font-size: 14px;
-  }
-
-  .profile-form {
-    padding: 0 20px 28px;
-  }
-
-  .profile-section {
-    padding: 24px 0;
-  }
-
-  .avatar-upload-area {
-    flex-direction: column;
+.profile-error {
+  padding: 3.75rem;
     text-align: center;
-    padding: 20px 16px;
-    gap: 16px;
-  }
+  color: #ef4444;
+}
 
-  .avatar-preview {
-    width: 110px;
-    height: 110px;
-    margin: 0 auto;
-  }
+.profile-retry-btn {
+  margin-top: 1.25rem;
+  padding: 0.75rem 1.75rem;
+  background: #FF6B6B;
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  .form-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .profile-submit-btn {
-    width: 100%;
-    padding: 14px 28px;
-  }
+.profile-retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(255, 107, 107, 0.35),
+    0 4px 12px rgba(255, 107, 107, 0.25);
 }
