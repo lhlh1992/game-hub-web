@@ -25,6 +25,7 @@ const Header = () => {
   const [notifyOpen, setNotifyOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadTotal, setUnreadTotal] = useState(0) // 后端未读总数（不限前端截断）
+  const [toast, setToast] = useState({ show: false, text: '', type: 'info' })
   const { data: ongoingGame, refresh: refreshOngoing } = useOngoingGame()
   const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
 
@@ -157,6 +158,14 @@ const Header = () => {
     login()
   }
 
+  const showToast = (text, type = 'info', duration = 2200) => {
+    setToast({ show: true, text, type })
+    window.clearTimeout(showToast._tid)
+    showToast._tid = window.setTimeout(() => {
+      setToast((t) => ({ ...t, show: false }))
+    }, duration)
+  }
+
   const handleQuitGame = async () => {
     if (!ongoing?.roomId || ending) return
     const confirmed = window.confirm('确认离开当前对局并返回大厅？')
@@ -201,16 +210,16 @@ const Header = () => {
     e?.stopPropagation?.()
     const requestId = item?.payload?.friendRequestId || item?.refId || item?.id
     if (!requestId) {
-      window.alert('缺少好友申请ID，无法处理')
+      showToast('缺少好友申请ID，无法处理', 'error')
       return
     }
     try {
       if (action === 'ACCEPT') {
         await acceptFriendRequest(requestId)
-        window.alert('已同意好友申请')
+        showToast('已同意好友申请', 'success')
       } else if (action === 'REJECT') {
         await rejectFriendRequest(requestId)
-        window.alert('已拒绝好友申请')
+        showToast('已拒绝好友申请', 'warning')
       }
       // 成功后标记已读并移除动作
       setNotifications((list) => {
@@ -229,7 +238,7 @@ const Header = () => {
         return next
       })
     } catch (err) {
-      window.alert(err?.message || '操作失败，请稍后再试')
+      showToast(err?.message || '操作失败，请稍后再试', 'error', 2600)
     }
   }
 
@@ -343,6 +352,7 @@ const Header = () => {
             )}
           </div>
         </div>
+        <Toast info={toast} onClose={() => setToast((t) => ({ ...t, show: false }))} />
       </header>
 
       <ProfileDrawer
@@ -385,6 +395,19 @@ const ProfileDrawer = ({ open, onClose, displayName, playerId, avatarUrl, onLogo
           </button>
         </div>
       </aside>
+    </div>
+  )
+}
+
+const Toast = ({ info, onClose }) => {
+  if (!info?.show) return null
+  const type = info.type || 'info'
+  return (
+    <div className="gh-toast" onClick={onClose}>
+      <div className={`gh-toast-content ${type}`}>
+        <span className="gh-toast-dot" />
+        <span className="gh-toast-text">{info.text}</span>
+      </div>
     </div>
   )
 }

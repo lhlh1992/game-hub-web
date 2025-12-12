@@ -486,6 +486,48 @@
     font-weight: 500;
 }
 
+/* Toast */
+.gh-toast {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 300;
+    animation: toastIn 0.25s ease;
+}
+
+@keyframes toastIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.gh-toast-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    min-width: 200px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.gh-toast-content .gh-toast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6366f1;
+}
+
+.gh-toast-content.success .gh-toast-dot { background: #22c55e; }
+.gh-toast-content.warning .gh-toast-dot { background: #f59e0b; }
+.gh-toast-content.error .gh-toast-dot { background: #ef4444; }
+.gh-toast-content.info .gh-toast-dot { background: #6366f1; }
+
 .avatar-pill {
     display: flex;
     align-items: center;
