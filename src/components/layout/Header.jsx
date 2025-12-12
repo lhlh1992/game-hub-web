@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useOngoingGame } from '../../hooks/useOngoingGame.js'
 import { leaveRoom } from '../../services/api/gameApi.js'
+import { fetchNotifications, fetchUnreadCount, markAllNotificationsRead, markNotificationRead } from '../../services/api/notificationApi.js'
 
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 const BELL_ICON = '/images/bell.svg'
@@ -22,6 +23,7 @@ const Header = () => {
   const [ending, setEnding] = useState(false)
   const [notifyOpen, setNotifyOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [unreadTotal, setUnreadTotal] = useState(0) // 后端未读总数（不限前端截断）
   const { data: ongoingGame, refresh: refreshOngoing } = useOngoingGame()
   const ongoing = ongoingGame?.hasOngoing ? ongoingGame : null
 
@@ -41,33 +43,81 @@ const Header = () => {
   }, [drawerOpen])
 
   // 未读计数
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => n.status === 'UNREAD').length,
-    [notifications],
-  )
+  const unreadCount = useMemo(() => {
+    // 若有后端未读总数，用总数；否则用前端列表计算
+    return unreadTotal > 0 ? unreadTotal : notifications.filter((n) => n.status === 'UNREAD').length
+  }, [notifications, unreadTotal])
 
-  // 监听来自 WS 的通知事件（useGlobalChatWs 通过 window.dispatchEvent('gh-notify', detail) 发出）
+  // 初始拉取通知列表（未读），保证刷新后仍能看到
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [listResp, countResp] = await Promise.all([
+          // 拉全部最新 10 条（含已读未读），但角标用后端未读数
+          fetchNotifications(null, 10),
+          fetchUnreadCount(),
+        ])
+        if (cancelled) return
+        const list = Array.isArray(listResp?.data) ? listResp.data : []
+        setNotifications(list.map((n) => ({
+          id: n.id || n.notificationId || n.createdAt || Date.now(),
+          title: n.title || '系统通知',
+          content: n.content || '',
+          status: n.status || 'UNREAD',
+          createdAt: n.createdAt,
+        })))
+        if (typeof countResp?.data === 'number') {
+          setUnreadTotal(countResp.data)
+        } else {
+          setUnreadTotal(list.length)
+        }
+      } catch (e) {
+        console.warn('拉取通知失败', e?.message || e)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated])
+
+  // 将通知追加到铃铛列表（带去重）
+  const appendNotification = (notify) => {
+    let added = false
+    setNotifications((prev) => {
+      const id = notify.id || notify.notificationId || notify.payload?.notificationId || notify.timestamp || Date.now()
+      const exists = prev.some((n) => n.id === id)
+      if (exists) return prev
+      added = true
+      const next = [
+        {
+          id,
+          title: notify.title || '系统通知',
+          content: notify.content || notify.payload?.requestMessage || '',
+          status: notify.status || 'UNREAD',
+          createdAt: notify.createdAt || notify.timestamp || Date.now(),
+        },
+        ...prev,
+      ].slice(0, 10)
+      return next
+    })
+    // 未读总数 +1（仅未读，且确实新增）
+    if (added && (!notify.status || notify.status === 'UNREAD')) {
+      setUnreadTotal((n) => n + 1)
+    }
+  }
+
+  // 监听来自 WS 的通知事件（useGlobalChatWs 广播 gh-notify）
   useEffect(() => {
     // 先消费可能存在的缓冲
     try {
       const buf = Array.isArray(window.__ghNotifyBuffer) ? window.__ghNotifyBuffer : []
       if (buf.length > 0) {
-        buf.forEach((notify) => {
-          setNotifications((prev) => {
-            const id = notify.timestamp || Date.now()
-            const next = [
-              {
-                id,
-                title: notify.title || '系统通知',
-                content: notify.content || notify.payload?.requestMessage || '',
-                status: 'UNREAD',
-                createdAt: notify.timestamp || Date.now(),
-              },
-              ...prev,
-            ].slice(0, 30)
-            return next
-          })
-        })
+        buf.forEach(appendNotification)
         window.__ghNotifyBuffer = []
       }
     } catch {
@@ -77,20 +127,7 @@ const Header = () => {
     const handler = (event) => {
       const notify = event?.detail || {}
       console.log('[GH][bell] received notify', notify)
-      setNotifications((prev) => {
-        const id = notify.timestamp || Date.now()
-        const next = [
-          {
-            id,
-            title: notify.title || '系统通知',
-            content: notify.content || notify.payload?.requestMessage || '',
-            status: 'UNREAD',
-            createdAt: notify.timestamp || Date.now(),
-          },
-          ...prev,
-        ].slice(0, 30)
-        return next
-      })
+      appendNotification(notify)
       setNotifyOpen(true)
     }
     window.addEventListener('gh-notify', handler)
@@ -132,16 +169,24 @@ const Header = () => {
 
   const toggleNotify = () => {
     setNotifyOpen((open) => !open)
-    // 打开时，假定用户已查看列表，全部标记为已读
-    if (!notifyOpen && unreadCount > 0) {
-      setNotifications((list) => list.map((n) => ({ ...n, status: 'READ' })))
-    }
   }
 
   const handleNotifyClick = (id) => {
-    setNotifications((list) =>
-      list.map((n) => (n.id === id ? { ...n, status: 'READ' } : n)),
-    )
+    setNotifications((list) => {
+      let wasUnread = false
+      const next = list.map((n) => {
+        if (n.id === id) {
+          wasUnread = n.status === 'UNREAD'
+          return { ...n, status: 'READ' }
+        }
+        return n
+      })
+      if (wasUnread) {
+        setUnreadTotal((c) => Math.max(0, c - 1))
+        markNotificationRead(id).catch(() => {})
+      }
+      return next
+    })
   }
 
   const playerId = useMemo(() => user?.playerId || user?.displayId || user?.username || '--', [user])
