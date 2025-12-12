@@ -174,7 +174,8 @@ async function connectChatWebSocketInternal(isInitialConnect = false) {
 
   const headers = { Authorization: 'Bearer ' + token }
   const connectTimeout = setTimeout(() => {
-    if (!stomp.connected) {
+    // stomp 可能被清理为空，先防御判空
+    if (!stomp || !stomp.connected) {
       notifyListeners('onError', new Error('连接超时'))
       if (!isManualDisconnect) {
         scheduleReconnect(isInitialConnect) // 初始连接超时也不显示重连提示
@@ -220,6 +221,17 @@ async function connectChatWebSocketInternal(isInitialConnect = false) {
             isManualDisconnect = true
             notifyListeners('onKicked', reason)
             disconnectChatWebSocket()
+          })
+        } catch {
+          // ignore
+        }
+
+        // 订阅业务通知（好友申请等）
+        try {
+          console.log('[GH][ws] subscribe user notify')
+          subscribeUserNotify((payload) => {
+            console.log('[GH][ws] received notify', payload)
+            notifyListeners('onNotify', payload)
           })
         } catch {
           // ignore
@@ -351,6 +363,45 @@ function subscribeSystemKick(onKick) {
     try {
       const payload = JSON.parse(frame.body)
       onKick?.(payload)
+    } catch {
+      // ignore
+    }
+  })
+
+  subscriptions.set(topic, sub)
+}
+
+/**
+ * 订阅用户通知推送（例如好友申请）
+ */
+function subscribeUserNotify(onNotify) {
+  const client = getClient()
+  const topic = '/user/queue/notify'
+
+  if (subscriptions.has(topic)) {
+    try {
+      subscriptions.get(topic).unsubscribe()
+    } catch {
+      // ignore
+    }
+  }
+
+  const sub = client.subscribe(topic, (frame) => {
+    try {
+      const payload = JSON.parse(frame.body)
+      onNotify?.(payload)
+      try {
+        // 兜底缓冲，避免监听器尚未注册
+        if (typeof window !== 'undefined') {
+          window.__ghNotifyBuffer = window.__ghNotifyBuffer || []
+          window.__ghNotifyBuffer.push(payload)
+        }
+        // 直接广播浏览器事件，兜底通知监听方（如 Header）
+        const evt = new CustomEvent('gh-notify', { detail: payload })
+        window.dispatchEvent(evt)
+      } catch {
+        // ignore
+      }
     } catch {
       // ignore
     }
