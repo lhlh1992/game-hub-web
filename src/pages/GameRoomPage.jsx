@@ -6,6 +6,7 @@ import { useGomokuGame } from '../hooks/useGomokuGame.js'
 import { useOngoingGame } from '../hooks/useOngoingGame.js'
 import { getOngoingGame, leaveRoom, getUserInfo, getRoomView } from '../services/api/gameApi.js'
 import { getRoomChatHistory } from '../services/api/chatApi.js'
+import { applyFriend } from '../services/api/friendApi.js'
 import { sendKick } from '../services/ws/gomokuSocket.js'
 import { useChatRoomWs } from '../hooks/useChatRoomWs.js'
 import { ROOM_MESSAGES } from '../i18n/index.js'
@@ -964,6 +965,7 @@ const GameRoomPage = () => {
 
   // 踢人确认对话框状态
   const [kickConfirmModal, setKickConfirmModal] = useState({ show: false, targetName: '', targetUserId: '' })
+  const [friendRequestModal, setFriendRequestModal] = useState({ show: false, targetUserId: '', targetName: '' })
 
   // 打开踢人确认对话框
   const handleOpenKickConfirm = useCallback(() => {
@@ -1009,24 +1011,53 @@ const GameRoomPage = () => {
     setProfileModal({ open: false, user: null, anchor: null })
   }, [])
 
-  // 添加好友（占位实现，后续可接入真实好友申请接口）
-  const handleAddFriend = useCallback(async (targetUserId, targetName) => {
+  // 显示好友申请弹窗
+  const showFriendRequestModal = useCallback((targetUserId, targetName) => {
     if (!targetUserId) return
+    setFriendRequestModal({ show: true, targetUserId, targetName })
+  }, [])
+
+  // 关闭好友申请弹窗
+  const closeFriendRequestModal = useCallback(() => {
+    setFriendRequestModal({ show: false, targetUserId: '', targetName: '' })
+  }, [])
+
+  // 确认发送好友申请
+  const handleConfirmFriendRequest = useCallback(async (requestMessage) => {
+    const { targetUserId, targetName } = friendRequestModal
+    if (!targetUserId) return
+    
     try {
-      await fetch('/api/friends/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId }),
-      })
-      window.alert(`已发送好友申请，等待对方同意`)
-      setOpponentPlayer((prev) => ({
-        ...prev,
-        friendStatus: FRIEND_STATUS.PENDING,
-      }))
+      const result = await applyFriend(targetUserId, requestMessage)
+      
+      // 关闭弹窗
+      closeFriendRequestModal()
+      
+      // 根据结果更新状态
+      if (result.autoAccepted) {
+        // 双向申请自动通过，直接成为好友
+        window.alert(result.message || '已自动成为好友')
+        setOpponentPlayer((prev) => ({
+          ...prev,
+          friendStatus: FRIEND_STATUS.ACCEPTED,
+        }))
+      } else {
+        // 正常申请，等待对方处理
+        window.alert(result.message || '申请已发送，等待对方处理')
+        setOpponentPlayer((prev) => ({
+          ...prev,
+          friendStatus: FRIEND_STATUS.PENDING,
+        }))
+      }
     } catch (e) {
       window.alert(`发送好友申请失败：${e?.message || '未知错误'}`)
     }
-  }, [])
+  }, [friendRequestModal, closeFriendRequestModal])
+
+  // 添加好友（显示弹窗）
+  const handleAddFriend = useCallback((targetUserId, targetName) => {
+    showFriendRequestModal(targetUserId, targetName)
+  }, [showFriendRequestModal])
 
   const handleOpenChat = useCallback(
     (targetUserId) => {
@@ -1170,6 +1201,12 @@ const GameRoomPage = () => {
         onConfirm={handleConfirmKick}
         onCancel={handleCancelKick}
         disabled={kicking}
+      />
+      <FriendRequestModal
+        show={friendRequestModal.show}
+        targetName={friendRequestModal.targetName}
+        onConfirm={handleConfirmFriendRequest}
+        onCancel={closeFriendRequestModal}
       />
       <ProfilePopover
         open={profileModal.open}
@@ -1761,6 +1798,99 @@ const KickConfirmModal = ({ show, targetName, onConfirm, onCancel, disabled }) =
             disabled={disabled}
           >
             {disabled ? '处理中...' : '确认踢出'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 好友申请弹窗组件
+const FriendRequestModal = ({ show, targetName, onConfirm, onCancel }) => {
+  const [requestMessage, setRequestMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  // 重置状态
+  useEffect(() => {
+    if (show) {
+      setRequestMessage('')
+      setSubmitting(false)
+    }
+  }, [show])
+
+  const handleConfirm = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      // 传递留言内容（即使为空字符串也要传递，让后端处理）
+      await onConfirm(requestMessage.trim())
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleConfirm()
+    }
+  }
+
+  if (!show) return null
+
+  return (
+    <div 
+      className="friend-request-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onCancel()
+        }
+      }}
+    >
+      <div className="friend-request-modal-content">
+        <div className="friend-request-modal-header">
+          <div className="friend-request-modal-icon">👋</div>
+          <h3>申请加好友</h3>
+        </div>
+        <div className="friend-request-modal-body">
+          <p>向 <strong>{targetName}</strong> 发送好友申请</p>
+          <div className="friend-request-input-wrapper">
+            <textarea
+              className="friend-request-input"
+              placeholder="请输入申请留言（可选，最多200字）"
+              value={requestMessage}
+              onChange={(e) => {
+                const value = e.target.value
+                if (value.length <= 200) {
+                  setRequestMessage(value)
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              rows={4}
+              maxLength={200}
+              disabled={submitting}
+            />
+            <div className="friend-request-char-count">
+              {requestMessage.length}/200
+            </div>
+          </div>
+        </div>
+        <div className="friend-request-modal-footer">
+          <button
+            type="button"
+            className="friend-request-modal-btn friend-request-modal-btn-cancel"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            className="friend-request-modal-btn friend-request-modal-btn-confirm"
+            onClick={handleConfirm}
+            disabled={submitting}
+          >
+            {submitting ? '发送中...' : '发送申请'}
           </button>
         </div>
       </div>
