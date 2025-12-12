@@ -38,4 +38,44 @@ export async function applyFriend(targetUserId, requestMessage) {
   }
 }
 
+/**
+ * 同意好友申请
+ * @param {string} requestId 好友申请ID
+ */
+export async function acceptFriendRequest(requestId) {
+  if (!requestId) throw new Error('请求ID不能为空')
+  return postFriendActionWithFallback(requestId, 'accept', '同意好友申请失败')
+}
+
+/**
+ * 拒绝好友申请
+ * @param {string} requestId 好友申请ID
+ */
+export async function rejectFriendRequest(requestId) {
+  if (!requestId) throw new Error('请求ID不能为空')
+  return postFriendActionWithFallback(requestId, 'reject', '拒绝好友申请失败')
+}
+
+// 内部：多路径回退，兼容网关/直连/不同前缀（避免 404）
+async function postFriendActionWithFallback(requestId, action, defaultMsg) {
+  const paths = [
+    `/system-service/api/friends/requests/${requestId}/${action}`,
+    `/api/friends/requests/${requestId}/${action}`,
+  ]
+  let lastErr
+  for (const p of paths) {
+    try {
+      const resp = await post(p)
+      if (resp.code !== 200) {
+        throw new Error(resp.message || defaultMsg)
+      }
+      return resp
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error(defaultMsg)
+}
+
+
 

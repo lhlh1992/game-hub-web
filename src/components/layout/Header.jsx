@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth.js'
 import { useOngoingGame } from '../../hooks/useOngoingGame.js'
 import { leaveRoom } from '../../services/api/gameApi.js'
 import { fetchNotifications, fetchUnreadCount, markAllNotificationsRead, markNotificationRead } from '../../services/api/notificationApi.js'
+import { acceptFriendRequest, rejectFriendRequest } from '../../services/api/friendApi.js'
 
 const DEFAULT_AVATAR = '/images/avatar-default.png'
 const BELL_ICON = '/images/bell.svg'
@@ -70,6 +71,9 @@ const Header = () => {
           content: n.content || '',
           status: n.status || 'UNREAD',
           createdAt: n.createdAt,
+          type: n.type || 'SYSTEM',
+          actions: Array.isArray(n.actions) ? n.actions : [],
+          payload: n.payload || {},
         })))
         if (typeof countResp?.data === 'number') {
           setUnreadTotal(countResp.data)
@@ -93,16 +97,19 @@ const Header = () => {
       const exists = prev.some((n) => n.id === id)
       if (exists) return prev
       added = true
-      const next = [
+      const next = sortNotifications([
         {
           id,
           title: notify.title || '系统通知',
           content: notify.content || notify.payload?.requestMessage || '',
           status: notify.status || 'UNREAD',
           createdAt: notify.createdAt || notify.timestamp || Date.now(),
+          type: notify.type || 'SYSTEM',
+          actions: Array.isArray(notify.actions) ? notify.actions : [],
+          payload: notify.payload || {},
         },
         ...prev,
-      ].slice(0, 10)
+      ]).slice(0, 10)
       return next
     })
     // 未读总数 +1（仅未读，且确实新增）
@@ -174,19 +181,56 @@ const Header = () => {
   const handleNotifyClick = (id) => {
     setNotifications((list) => {
       let wasUnread = false
-      const next = list.map((n) => {
+      const next = sortNotifications(list.map((n) => {
         if (n.id === id) {
           wasUnread = n.status === 'UNREAD'
           return { ...n, status: 'READ' }
         }
         return n
-      })
+      }))
       if (wasUnread) {
         setUnreadTotal((c) => Math.max(0, c - 1))
         markNotificationRead(id).catch(() => {})
       }
       return next
     })
+  }
+
+  // 处理好友申请操作（同意/拒绝）
+  const handleFriendRequestAction = async (item, action, e) => {
+    e?.stopPropagation?.()
+    const requestId = item?.payload?.friendRequestId || item?.refId || item?.id
+    if (!requestId) {
+      window.alert('缺少好友申请ID，无法处理')
+      return
+    }
+    try {
+      if (action === 'ACCEPT') {
+        await acceptFriendRequest(requestId)
+        window.alert('已同意好友申请')
+      } else if (action === 'REJECT') {
+        await rejectFriendRequest(requestId)
+        window.alert('已拒绝好友申请')
+      }
+      // 成功后标记已读并移除动作
+      setNotifications((list) => {
+        let wasUnread = false
+        const next = sortNotifications(list.map((n) => {
+          if (n.id === item.id) {
+            wasUnread = n.status === 'UNREAD'
+            return { ...n, status: 'READ', actions: [] }
+          }
+          return n
+        }))
+        if (wasUnread) {
+          setUnreadTotal((c) => Math.max(0, c - 1))
+          markNotificationRead(item.id).catch(() => {})
+        }
+        return next
+      })
+    } catch (err) {
+      window.alert(err?.message || '操作失败，请稍后再试')
+    }
   }
 
   const playerId = useMemo(() => user?.playerId || user?.displayId || user?.username || '--', [user])
@@ -233,21 +277,47 @@ const Header = () => {
                     {notifications.length === 0 ? (
                       <div className="notify-empty">暂无通知</div>
                     ) : (
-                      notifications.slice(0, 10).map((item) => (
-                        <div
-                          key={item.id}
-                          className={`notify-item ${item.status === 'UNREAD' ? 'unread' : ''}`}
-                          onClick={() => handleNotifyClick(item.id)}
-                        >
-                          <div className="notify-title">{item.title || '系统通知'}</div>
-                          <div className="notify-content">{item.content || ''}</div>
-                          <div className="notify-time">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleString()
-                              : ''}
+                      notifications.slice(0, 10).map((item) => {
+                        const actions = Array.isArray(item.actions) ? item.actions : []
+                        const isFriendRequest = item.type === 'FRIEND_REQUEST'
+                        return (
+                          <div
+                            key={item.id}
+                            className={`notify-item ${item.status === 'UNREAD' ? 'unread' : ''}`}
+                            onClick={() => handleNotifyClick(item.id)}
+                          >
+                            <div className="notify-title">{item.title || '系统通知'}</div>
+                            <div className="notify-content">{item.content || ''}</div>
+                            <div className="notify-time">
+                              {item.createdAt
+                                ? new Date(item.createdAt).toLocaleString()
+                                : ''}
+                            </div>
+                            {isFriendRequest && actions.length > 0 && (
+                              <div className="notify-actions">
+                                {actions.includes('ACCEPT') && (
+                                  <button
+                                    type="button"
+                                    className="notify-btn accept"
+                                    onClick={(e) => handleFriendRequestAction(item, 'ACCEPT', e)}
+                                  >
+                                    同意
+                                  </button>
+                                )}
+                                {actions.includes('REJECT') && (
+                                  <button
+                                    type="button"
+                                    className="notify-btn reject"
+                                    onClick={(e) => handleFriendRequestAction(item, 'REJECT', e)}
+                                  >
+                                    拒绝
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))
+                        )
+                      })
                     )}
                   </div>
                 </div>
@@ -317,6 +387,18 @@ const ProfileDrawer = ({ open, onClose, displayName, playerId, avatarUrl, onLogo
       </aside>
     </div>
   )
+}
+
+// 未读优先，其次时间倒序
+function sortNotifications(list) {
+  return [...list].sort((a, b) => {
+    const aUnread = a.status === 'UNREAD'
+    const bUnread = b.status === 'UNREAD'
+    if (aUnread !== bUnread) return aUnread ? -1 : 1
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return bTime - aTime
+  })
 }
 
 export default Header
