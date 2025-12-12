@@ -1043,14 +1043,14 @@ const GameRoomPage = () => {
         }))
       } else {
         // 正常申请，等待对方处理
-        window.alert(result.message || '申请已发送，等待对方处理')
+        showMessage(result.message || '申请已发送，等待对方处理', 'info')
         setOpponentPlayer((prev) => ({
           ...prev,
           friendStatus: FRIEND_STATUS.PENDING,
         }))
       }
     } catch (e) {
-      window.alert(`发送好友申请失败：${e?.message || '未知错误'}`)
+      showMessage(`发送好友申请失败：${e?.message || '未知错误'}`, 'error')
     }
   }, [friendRequestModal, closeFriendRequestModal])
 

@@ -1686,17 +1686,16 @@
 }
 
 .friend-request-modal-content {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 250, 0.98) 100%);
-    border-radius: 20px;
-    padding: 32px;
-    max-width: 480px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(250, 251, 255, 0.94));
+    border-radius: 18px;
+    padding: 28px 30px;
+    max-width: 460px;
     width: 90%;
-    box-shadow: 
-        0 20px 60px rgba(34, 197, 94, 0.25),
-        0 0 0 1px rgba(34, 197, 94, 0.15),
-        0 0 100px rgba(34, 197, 94, 0.15);
-    border: 2px solid rgba(34, 197, 94, 0.1);
-    animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow:
+        0 18px 54px rgba(15, 23, 42, 0.16),
+        0 0 0 1px rgba(226, 232, 240, 0.7);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    animation: modalSlideIn 0.28s cubic-bezier(0.33, 1.24, 0.52, 1);
 }
 
 .friend-request-modal-header {
@@ -1710,15 +1709,14 @@
 .friend-request-modal-icon {
     font-size: 48px;
     line-height: 1;
-    filter: drop-shadow(0 2px 4px rgba(34, 197, 94, 0.2));
+    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2));
 }
 
 .friend-request-modal-header h3 {
     margin: 0;
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 700;
-    color: #22C55E;
-    text-shadow: 0 2px 4px rgba(34, 197, 94, 0.15);
+    color: #0f172a;
 }
 
 .friend-request-modal-body {
@@ -1734,7 +1732,7 @@
 }
 
 .friend-request-modal-body p strong {
-    color: #22C55E;
+    color: #0f172a;
     font-weight: 600;
 }
 
@@ -1744,13 +1742,13 @@
 
 .friend-request-input {
     width: 100%;
-    padding: 12px 16px;
-    border: 2px solid rgba(34, 197, 94, 0.2);
+    padding: 14px 16px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
     border-radius: 12px;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
-    color: #1e293b;
-    background: rgba(255, 255, 255, 0.8);
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.98);
     resize: vertical;
     min-height: 100px;
     font-family: inherit;
@@ -1760,9 +1758,9 @@
 
 .friend-request-input:focus {
     outline: none;
-    border-color: #22C55E;
+    border-color: rgba(99, 102, 241, 0.45);
     background: rgba(255, 255, 255, 1);
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .friend-request-input:disabled {
@@ -1811,9 +1809,10 @@
 }
 
 .friend-request-modal-btn-cancel {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-    color: #475569;
-    border: 2px solid rgba(148, 163, 184, 0.3);
+    background: #f8fafc;
+    color: #0f172a;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
 }
 
 .friend-request-modal-btn-cancel:hover:not(:disabled) {
@@ -1823,10 +1822,10 @@
 }
 
 .friend-request-modal-btn-confirm {
-    background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: white;
-    border: 2px solid rgba(34, 197, 94, 0.3);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.28);
 }
 
 .friend-request-modal-btn-confirm:hover:not(:disabled) {
