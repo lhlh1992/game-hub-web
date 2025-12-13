@@ -81,6 +81,7 @@
 
 .chat-drawer {
   width: 360px;
+  max-width: calc(100vw - 32px);
   height: 640px;
   max-height: 80vh;
   background: #ffffff;
@@ -95,6 +96,16 @@
   animation: chat-drawer-in 240ms ease forwards;
   transform-origin: 100% 100%;
   will-change: transform, opacity;
+  box-sizing: border-box;
+}
+
+/* 响应式：小屏幕时调整大小 */
+@media (max-width: 768px) {
+  .chat-drawer {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
+  }
 }
 
 .chat-drawer-header {
@@ -183,11 +194,14 @@
 .chat-thread-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 6px 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 美化聊天列表滚动条 */
@@ -352,6 +366,7 @@
   right: 400px;
   bottom: 24px;
   width: 420px;
+  max-width: calc(100vw - 32px);
   height: 680px;
   max-height: 85vh;
   background: #ffffff;
@@ -367,6 +382,25 @@
   animation: chat-drawer-in 220ms ease forwards;
   transform-origin: 100% 100%;
   will-change: transform, opacity;
+  box-sizing: border-box;
+}
+
+/* 响应式：小屏幕时调整位置和大小 */
+@media (max-width: 1200px) {
+  .chat-thread-window {
+    right: 16px;
+    width: min(420px, calc(100vw - 32px));
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-thread-window {
+    right: 16px;
+    bottom: 16px;
+    width: calc(100vw - 32px);
+    height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
+  }
 }
 
 .chat-drawer.open,
@@ -392,6 +426,9 @@
   padding: 14px 16px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   background: #f9fafb;
+  flex-shrink: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .chat-thread-header-left {
@@ -403,11 +440,14 @@
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 美化消息区域滚动条 */
@@ -460,6 +500,11 @@
   font-size: 14px;
   line-height: 1.5;
   color: #1f2937;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-message.self .chat-bubble {
@@ -489,16 +534,23 @@
   padding: 14px 16px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   background: #f9fafb;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .chat-input {
   flex: 1;
+  min-width: 0;
   padding: 12px 14px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   background: #ffffff;
   font-size: 14px;
   outline: none;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  word-wrap: break-word;
 }
 
 .chat-send {
@@ -519,6 +571,8 @@
   padding: 12px;
   color: #9ca3af;
   font-size: 13px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
