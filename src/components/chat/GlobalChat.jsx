@@ -57,7 +57,7 @@ function getInitials(text) {
 const GlobalChat = () => {
   const { isAuthenticated, user } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('friends') // 'friends' | 'chats'
+  const [activeTab, setActiveTab] = useState('chats') // 'friends' | 'chats' - 默认显示最近聊天
   const [threads, setThreads] = useState([])
   const [messagesByThread, setMessagesByThread] = useState({})
   const [activeThreadId, setActiveThreadId] = useState(null)
@@ -81,7 +81,7 @@ const GlobalChat = () => {
     let sessionId = threadIdToSessionId[threadId]
     
     if (!sessionId) {
-      // 通过 friendId 获取或创建私聊会话的 sessionId
+      // 通过 friendId 查询私聊会话的 sessionId（仅查询，不创建）
       try {
         const response = await get(`/chat-service/api/sessions/private/${friendId}`)
         if (response && response.sessionId) {
@@ -89,6 +89,11 @@ const GlobalChat = () => {
           setThreadIdToSessionId(prev => ({ ...prev, [threadId]: sessionId }))
         }
       } catch (error) {
+        // 如果返回 404，说明会话不存在（还没有发送过消息），这是正常的，不需要标记已读
+        if (error?.response?.status === 404) {
+          console.log('[GlobalChat] 会话不存在（还没有发送过消息），跳过标记已读: friendId=', friendId)
+          return
+        }
         console.warn('获取会话ID失败', error)
         // 如果获取失败，尝试从会话列表获取（降级方案）
         try {
@@ -117,7 +122,8 @@ const GlobalChat = () => {
         console.warn('[GlobalChat] 标记消息已读失败: sessionId=', sessionId, 'error=', error)
       }
     } else {
-      console.warn('[GlobalChat] 无法标记已读：未找到 sessionId, friendId=', friendId)
+      // 会话不存在（还没有发送过消息），不需要标记已读，这是正常的
+      console.log('[GlobalChat] 会话不存在（还没有发送过消息），跳过标记已读: friendId=', friendId)
     }
   }, [threadIdToSessionId])
 
@@ -191,8 +197,9 @@ const GlobalChat = () => {
   }, [isAuthenticated])
 
   // 加载会话列表（包含未读数）
+  // 注意：不依赖 friends，避免重复加载。好友信息通过单独的 useEffect 更新
   useEffect(() => {
-    if (!isAuthenticated || friends.length === 0) {
+    if (!isAuthenticated) {
       return
     }
     
@@ -215,10 +222,20 @@ const GlobalChat = () => {
               // 建立映射
               newThreadIdToSessionId[threadId] = session.sessionId
               
-              // 查找对应的好友信息
-              const friend = friends.find(f => f.friendId === session.otherUserId)
-              const displayName = friend?.friendNickname || friend?.friendInfo?.nickname || friend?.friendInfo?.username || '好友'
-              const avatar = friend?.friendInfo?.avatarUrl || DEFAULT_AVATAR
+              // 优先使用后端返回的用户信息，如果没有则从好友列表查找，最后使用默认值
+              const displayName = session.otherUserNickname 
+                || (() => {
+                    const friend = friends.find(f => f.friendId === session.otherUserId)
+                    return friend?.friendNickname || friend?.friendInfo?.nickname || friend?.friendInfo?.username
+                  })()
+                || `用户${session.otherUserId.substring(0, 8)}`
+              
+              const avatar = session.otherUserAvatarUrl 
+                || (() => {
+                    const friend = friends.find(f => f.friendId === session.otherUserId)
+                    return friend?.friendInfo?.avatarUrl
+                  })()
+                || DEFAULT_AVATAR
               
               // 创建或更新 thread
               newThreads.push({
@@ -236,10 +253,20 @@ const GlobalChat = () => {
           if (!cancelled) {
             setThreadIdToSessionId(prev => ({ ...prev, ...newThreadIdToSessionId }))
             // 合并到现有 threads（保留前端本地创建的 threads）
+            // 注意：刷新页面时，prev 可能为空，此时直接使用 newThreads
             setThreads(prev => {
-              const existingThreadIds = new Set(newThreads.map(t => t.id))
-              const localThreads = prev.filter(t => !existingThreadIds.has(t.id))
-              return [...newThreads, ...localThreads]
+              if (prev.length === 0) {
+                // 刷新页面时，直接使用新加载的会话列表
+                return newThreads
+              }
+              // 有本地会话时，合并去重（以新加载的为准，更新已有会话的信息）
+              const existingThreadMap = new Map(prev.map(t => [t.id, t]))
+              newThreads.forEach(newThread => {
+                existingThreadMap.set(newThread.id, newThread)
+              })
+              // 保留本地创建的会话（不在新加载列表中的）
+              const localThreads = prev.filter(t => !newThreads.some(nt => nt.id === t.id))
+              return [...Array.from(existingThreadMap.values()), ...localThreads]
             })
           }
         }
@@ -252,7 +279,44 @@ const GlobalChat = () => {
     return () => {
       cancelled = true
     }
-  }, [isAuthenticated, friends])
+  }, [isAuthenticated]) // 移除 friends 依赖，避免重复加载
+  
+  // 当好友列表加载完成后，更新会话的显示名称和头像（仅当后端没有返回用户信息时）
+  useEffect(() => {
+    if (friends.length === 0) {
+      return
+    }
+    
+    setThreads(prev => prev.map(thread => {
+      // 只更新 friend_ 开头的会话
+      if (!thread.id.startsWith('friend_')) {
+        return thread
+      }
+      
+      // 如果已经有后端返回的用户信息（不是默认值），则不更新
+      // 判断标准：如果 title 不是 "用户..." 格式，说明已经有后端返回的信息
+      const friendId = thread.id.replace('friend_', '')
+      const isDefaultName = thread.title === `用户${friendId.substring(0, 8)}`
+      const isDefaultAvatar = thread.avatar === DEFAULT_AVATAR
+      
+      // 只有当前是默认值时才从好友列表更新
+      if (isDefaultName || isDefaultAvatar) {
+        const friend = friends.find(f => f.friendId === friendId)
+        
+        if (friend) {
+          const displayName = friend.friendNickname || friend.friendInfo?.nickname || friend.friendInfo?.username || thread.title
+          const avatar = friend.friendInfo?.avatarUrl || thread.avatar
+          
+          // 如果名称或头像有变化，才更新
+          if (thread.title !== displayName || thread.avatar !== avatar) {
+            return { ...thread, title: displayName, avatar: avatar }
+          }
+        }
+      }
+      
+      return thread
+    }))
+  }, [friends])
 
   const ensureThread = useCallback((threadId, meta = {}) => {
     setThreads((prev) => {
@@ -415,17 +479,41 @@ const GlobalChat = () => {
     persistDrawer(!drawerOpen)
   }
 
-  const handleOpenThread = async (threadId) => {
+  const handleOpenThread = useCallback(async (threadId) => {
     setActiveThreadId(threadId)
     // 前端本地更新未读数
     setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, unread: 0 } : t)))
     
-    // 如果是私聊会话，调用后端API标记为已读
+    // 如果是私聊会话，加载历史消息并标记为已读
     if (threadId.startsWith('friend_')) {
       const friendId = threadId.replace('friend_', '')
+      
+      // 加载私聊历史（如果还没有加载过）
+      if (!messagesByThread[threadId] || messagesByThread[threadId].length === 0) {
+        try {
+          const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
+          if (response && Array.isArray(response)) {
+            // 将历史消息添加到会话中（按时间顺序）
+            response.forEach((msg) => {
+              const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
+              addMessage({
+                text: msg.content || '',
+                type: isSelf ? 'self' : 'other',
+                timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+                threadId,
+              })
+            })
+          }
+        } catch (error) {
+          console.warn('[GlobalChat] 加载私聊历史失败', error)
+          // 静默失败，不影响用户体验
+        }
+      }
+      
+      // 标记消息为已读
       await markSessionAsRead(threadId, friendId)
     }
-  }
+  }, [messagesByThread, currentUserId, addMessage, markSessionAsRead])
 
   const handleCloseThread = () => {
     setActiveThreadId(null)
