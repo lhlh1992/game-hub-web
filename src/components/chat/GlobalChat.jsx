@@ -65,6 +65,7 @@ const GlobalChat = () => {
   const [friends, setFriends] = useState([])
   const [friendsLoading, setFriendsLoading] = useState(false)
   const messagesEndRef = useRef(null)
+  const activeThreadIdRef = useRef(null) // 用于在 WebSocket 回调中访问最新的 activeThreadId
   const hasUnread = useMemo(() => threads.some((t) => (t.unread || 0) > 0), [threads])
   
   // 当前用户ID（用于判断消息发送者）
@@ -330,7 +331,7 @@ const GlobalChat = () => {
   }, [])
 
   const addMessage = useCallback(
-    ({ text, type = 'self', timestamp = new Date(), threadId, meta = {} }) => {
+    ({ text, type = 'self', timestamp = new Date(), threadId, meta = {}, isHistory = false }) => {
       if (!threadId) return
       const ts = timestamp instanceof Date ? timestamp : new Date(timestamp)
       const msg = {
@@ -348,8 +349,8 @@ const GlobalChat = () => {
 
       setThreads((prev) => {
         const existed = prev.find((t) => t.id === threadId)
-        // 只有对方发送的消息才增加未读数，自己发送的或当前正在查看的会话不增加
-        const unreadIncrement = type === 'self' || activeThreadId === threadId ? 0 : 1
+        // 只有对方发送的消息才增加未读数，自己发送的、当前正在查看的会话、或历史消息不增加
+        const unreadIncrement = (type === 'self' || activeThreadId === threadId || isHistory) ? 0 : 1
         const base = existed || { id: threadId, ...meta }
         const updated = {
           ...base,
@@ -431,6 +432,15 @@ const GlobalChat = () => {
               timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
               threadId,
             })
+
+            // 如果当前会话是活动会话，自动标记为已读
+            // 这样当对话框一直开着时，新消息会自动标记为已读
+            // 使用 ref 获取最新的 activeThreadId，避免闭包问题
+            if (activeThreadIdRef.current === threadId) {
+              markSessionAsRead(threadId, senderId).catch((error) => {
+                console.warn('[GlobalChat] 收到新消息时自动标记已读失败', error)
+              })
+            }
           })
         } catch (error) {
           console.warn('订阅私聊消息失败', error)
@@ -473,7 +483,7 @@ const GlobalChat = () => {
       // 移除回调监听器（不断开连接，因为可能有其他监听器在使用）
       removeChatWebSocketCallbacks(callbacks)
     }
-  }, [isAuthenticated, currentUserId, addMessage, ensureThread])
+  }, [isAuthenticated, currentUserId, addMessage, ensureThread, markSessionAsRead])
 
   const handleToggleDrawer = () => {
     persistDrawer(!drawerOpen)
@@ -481,6 +491,7 @@ const GlobalChat = () => {
 
   const handleOpenThread = useCallback(async (threadId) => {
     setActiveThreadId(threadId)
+    activeThreadIdRef.current = threadId // 同步更新 ref
     // 前端本地更新未读数
     setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, unread: 0 } : t)))
     
@@ -494,6 +505,7 @@ const GlobalChat = () => {
           const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
           if (response && Array.isArray(response)) {
             // 将历史消息添加到会话中（按时间顺序）
+            // 注意：历史消息不应该增加未读数，所以传递 isHistory: true
             response.forEach((msg) => {
               const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
               addMessage({
@@ -501,6 +513,7 @@ const GlobalChat = () => {
                 type: isSelf ? 'self' : 'other',
                 timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
                 threadId,
+                isHistory: true, // 标记为历史消息，不增加未读数
               })
             })
           }
@@ -517,6 +530,7 @@ const GlobalChat = () => {
 
   const handleCloseThread = () => {
     setActiveThreadId(null)
+    activeThreadIdRef.current = null // 同步更新 ref
   }
 
   const handleInputChange = (threadId, value) => {
@@ -575,6 +589,7 @@ const GlobalChat = () => {
     })
     
     setActiveThreadId(threadId)
+    activeThreadIdRef.current = threadId // 同步更新 ref
     setActiveTab('chats') // 切换到聊天Tab
 
     // 加载私聊历史（如果还没有加载过）
@@ -583,6 +598,7 @@ const GlobalChat = () => {
         const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
         if (response && Array.isArray(response)) {
           // 将历史消息添加到会话中（按时间顺序）
+          // 注意：历史消息不应该增加未读数，所以传递 isHistory: true
           response.forEach((msg) => {
             const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
             addMessage({
@@ -590,6 +606,7 @@ const GlobalChat = () => {
               type: isSelf ? 'self' : 'other',
               timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
               threadId,
+              isHistory: true, // 标记为历史消息，不增加未读数
             })
           })
         }
