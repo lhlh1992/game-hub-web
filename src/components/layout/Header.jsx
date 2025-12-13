@@ -221,13 +221,16 @@ const Header = () => {
         await rejectFriendRequest(requestId)
         showToast('已拒绝好友申请', 'warning')
       }
-      // 成功后标记已读并移除动作
+      // 成功后标记已读、移除动作，并保存处理状态
       setNotifications((list) => {
         let wasUnread = false
+        const handledStatus = action === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED'
+        const handledStatusText = action === 'ACCEPT' ? '已同意' : '已拒绝'
         const next = sortNotifications(list.map((n) => {
           if (n.id === item.id) {
             wasUnread = n.status === 'UNREAD'
-            return { ...n, status: 'READ', actions: [] }
+            const updatedPayload = { ...(n.payload || {}), handledStatus, handledStatusText }
+            return { ...n, status: 'READ', actions: [], payload: updatedPayload }
           }
           return n
         }))
@@ -289,6 +292,8 @@ const Header = () => {
                       notifications.slice(0, 10).map((item) => {
                         const actions = Array.isArray(item.actions) ? item.actions : []
                         const isFriendRequest = item.type === 'FRIEND_REQUEST'
+                        const handledStatusText = item?.payload?.handledStatusText
+                        const isHandled = isFriendRequest && (actions.length === 0) && handledStatusText
                         return (
                           <div
                             key={item.id}
@@ -296,7 +301,19 @@ const Header = () => {
                             onClick={() => handleNotifyClick(item.id)}
                           >
                             <div className="notify-title">{item.title || '系统通知'}</div>
-                            <div className="notify-content">{item.content || ''}</div>
+                            <div className="notify-content">
+                              {item.content || ''}
+                              {isHandled && (
+                                <span className="notify-status" style={{ 
+                                  color: item?.payload?.handledStatus === 'ACCEPTED' ? '#52c41a' : '#ff4d4f',
+                                  fontWeight: 500,
+                                  fontSize: '11px',
+                                  marginLeft: '8px'
+                                }}>
+                                  {handledStatusText}
+                                </span>
+                              )}
+                            </div>
                             <div className="notify-time">
                               {item.createdAt
                                 ? new Date(item.createdAt).toLocaleString()

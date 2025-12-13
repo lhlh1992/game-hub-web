@@ -526,7 +526,86 @@ const GameRoomPage = () => {
         }))
       }
     }
+  }, [mySide, currentUserId, seatXUserId, seatOUserId])
+
+  // 监听好友申请结果通知，实时更新好友状态
+  useEffect(() => {
+    const handleFriendResultNotification = (event) => {
+      const notify = event?.detail || {}
+      
+      // 只处理 FRIEND_RESULT 类型的通知
+      if (notify.type !== 'FRIEND_RESULT') return
+      
+      const fromUserId = notify.fromUserId || ''
+      if (!fromUserId) return
+      
+      // 优先从 payload 中获取处理结果，如果没有则解析文本
+      const payload = notify.payload || {}
+      let isAccepted = false
+      
+      if (payload.accepted !== undefined) {
+        // 从 payload 中直接获取
+        isAccepted = Boolean(payload.accepted)
+      } else if (payload.result) {
+        // 从 result 字段获取
+        isAccepted = payload.result === 'ACCEPTED'
+      } else {
+        // 兜底：解析标题和内容
+        const title = notify.title || ''
+        const content = notify.content || ''
+        isAccepted = title.includes('通过') || title.includes('同意') || 
+                     content.includes('同意') || content.includes('通过')
+      }
+      
+      const newStatus = isAccepted ? FRIEND_STATUS.ACCEPTED : FRIEND_STATUS.NONE
+      
+      // 更新对手的好友状态（如果 fromUserId 匹配）
+      setOpponentPlayer((prev) => {
+        if (prev.userId === fromUserId) {
+          return {
+            ...prev,
+            friendStatus: newStatus,
+          }
+        }
+        return prev
+      })
+      
+      // 更新资料弹窗中的用户状态（如果打开的是该用户）
+      setProfileModal((prev) => {
+        if (prev.open && prev.user?.userId === fromUserId) {
+          return {
+            ...prev,
+            user: {
+              ...prev.user,
+              friendStatus: newStatus,
+            },
+          }
+        }
+        return prev
+      })
+      
+      // 更新用户信息缓存
+      setUserInfoCache((prev) => {
+        if (prev[fromUserId]) {
+          return {
+            ...prev,
+            [fromUserId]: {
+              ...prev[fromUserId],
+              friendStatus: newStatus,
+            },
+          }
+        }
+        return prev
+      })
+    }
     
+    window.addEventListener('gh-notify', handleFriendResultNotification)
+    return () => {
+      window.removeEventListener('gh-notify', handleFriendResultNotification)
+    }
+  }, []) // 空依赖数组，只在组件挂载时注册一次
+
+  useEffect(() => {
     // 根据座位用户ID和模式确定对手信息
     // 即使 mySide 未设置，也可以根据 seatXUserId 和 seatOUserId 来确定对手
     // 如果 mySide 已设置，使用 mySide 来确定对手；否则，根据 currentUserId 来确定
@@ -678,7 +757,17 @@ const GameRoomPage = () => {
       bio: opponentBio || prev.bio,
       isSelf: false,
     }))
-  }, [mySide, mode, seatXUserId, seatOUserId, currentUserId, seatXUserInfo, seatOUserInfo, ownerUserId, userInfoCache])
+  }, [
+    mySide,
+    mode,
+    seatXUserId,
+    seatOUserId,
+    currentUserId,
+    seatXUserInfo,
+    seatOUserInfo,
+    ownerUserId,
+    userInfoCache,
+  ])
 
   // 调试：监听 opponentPlayer 的变化（生产环境已不输出日志）
   useEffect(() => {}, [opponentPlayer])
