@@ -1,4 +1,4 @@
-import { post } from './apiClient.js'
+import { get, post } from './apiClient.js'
 
 /**
  * 申请加好友
@@ -75,6 +75,22 @@ async function postFriendActionWithFallback(requestId, action, defaultMsg) {
     }
   }
   throw lastErr || new Error(defaultMsg)
+}
+
+/**
+ * 获取好友列表
+ * @returns {Promise<Array>} 好友列表
+ */
+export async function getFriendsList() {
+  try {
+    const response = await get('/system-service/api/friends')
+    if (response.code !== 200) {
+      throw new Error(response.message || '获取好友列表失败')
+    }
+    return response.data || []
+  } catch (error) {
+    throw new Error(`获取好友列表失败: ${error.message}`)
+  }
 }
 
 

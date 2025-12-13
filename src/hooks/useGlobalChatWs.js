@@ -34,35 +34,11 @@ export function useGlobalChatWs() {
         // 重连失败
       },
       onNotify: (notify) => {
-        // 全局通知 -> 喂给全局聊天组件
+        // 全局通知 -> 只广播给 Header 通知铃铛，不再添加到聊天系统
+        // 聊天系统只用于用户之间的私聊
         try {
           console.log('[GH][notify] received payload', notify)
-          const threadId = 'notify'
-          const title = notify?.title || notify?.type || '通知'
-          const content = notify?.content || '收到一条新通知'
-          const subtitle = notify?.payload?.requesterName || notify?.fromUserId || ''
-          if (typeof window.registerChatThread === 'function') {
-            window.registerChatThread(threadId, {
-              id: threadId,
-              title,
-              subtitle: subtitle || '系统通知',
-              avatarColor: '#f59e0b',
-            })
-          }
-          if (typeof window.addSystemMessage === 'function') {
-            const payloadText = notify?.payload?.requestMessage || ''
-            const actionsText = Array.isArray(notify?.actions) && notify.actions.length > 0
-              ? ` [${notify.actions.join('/')}]`
-              : ''
-            const text = payloadText ? `${content}：${payloadText}${actionsText}` : `${content}${actionsText}`
-            window.addSystemMessage(text, threadId)
-          }
-        } catch {
-          // ignore render issues
-        }
-
-        // 广播浏览器事件，供 Header 通知铃铛使用
-        try {
+          // 广播浏览器事件，供 Header 通知铃铛使用
           const event = new CustomEvent('gh-notify', { detail: notify })
           window.dispatchEvent(event)
         } catch {
