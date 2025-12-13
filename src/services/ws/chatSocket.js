@@ -428,6 +428,76 @@ export function sendRoomChat(roomId, content, clientOpId) {
   })
 }
 
+/**
+ * 订阅私聊消息
+ * 订阅 /user/queue/chat.private 接收发送给自己的私聊消息
+ *
+ * @param {Function} onMessage 消息回调函数，参数：ChatMessagePayload
+ * @returns {Function} 取消订阅函数
+ */
+export function subscribePrivateChat(onMessage) {
+  const client = getClient()
+  const topic = '/user/queue/chat.private'
+  
+  // 如果已订阅，先取消
+  if (subscriptions.has(topic)) {
+    try {
+      subscriptions.get(topic).unsubscribe()
+    } catch {
+      // ignore
+    }
+  }
+  
+  const sub = client.subscribe(topic, (frame) => {
+    try {
+      const payload = JSON.parse(frame.body)
+      logWs('收到私聊消息', payload)
+      if (typeof onMessage === 'function') {
+        onMessage(payload)
+      }
+    } catch (e) {
+      logWs('解析私聊消息失败', e)
+    }
+  })
+  
+  subscriptions.set(topic, sub)
+  
+  // 返回取消订阅函数
+  return () => {
+    try {
+      sub.unsubscribe()
+      subscriptions.delete(topic)
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/**
+ * 发送私聊消息
+ *
+ * @param {string} targetUserId 接收者用户ID（Keycloak用户ID，String格式）
+ * @param {string} content 消息内容
+ * @param {string} [clientOpId] 客户端操作ID（用于去重，可选）
+ */
+export function sendPrivateChat(targetUserId, content, clientOpId) {
+  let client
+  try {
+    client = getClient()
+  } catch (e) {
+    throw e
+  }
+  logWs('发送私聊消息', { targetUserId, content })
+  client.publish({
+    destination: '/app/chat.private.send',
+    body: JSON.stringify({
+      targetUserId,
+      content,
+      clientOpId: clientOpId || crypto?.randomUUID?.() || String(Date.now()),
+    }),
+  })
+}
+
 export function disconnectChatWebSocket() {
   isManualDisconnect = true
   clearTimeout(reconnectTimer)

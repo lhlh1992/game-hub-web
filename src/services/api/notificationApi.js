@@ -19,3 +19,4 @@ export async function markAllNotificationsRead() {
   return post('/system-service/api/notifications/read-all')
 }
 
+

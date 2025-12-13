@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth.js'
 import { getFriendsList } from '../../services/api/friendApi.js'
+import { subscribePrivateChat, sendPrivateChat, connectChatWebSocket, removeChatWebSocketCallbacks } from '../../services/ws/chatSocket.js'
+import { get, post } from '../../services/api/apiClient.js'
 
 const STORAGE_KEY = 'globalChatDrawerOpen'
 const DEFAULT_AVATAR = '/images/avatar-default.png'
@@ -53,7 +55,7 @@ function getInitials(text) {
 }
 
 const GlobalChat = () => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('friends') // 'friends' | 'chats'
   const [threads, setThreads] = useState([])
@@ -64,6 +66,60 @@ const GlobalChat = () => {
   const [friendsLoading, setFriendsLoading] = useState(false)
   const messagesEndRef = useRef(null)
   const hasUnread = useMemo(() => threads.some((t) => (t.unread || 0) > 0), [threads])
+  
+  // 当前用户ID（用于判断消息发送者）
+  const currentUserId = useMemo(() => {
+    return user?.userId || user?.systemUserId || null
+  }, [user])
+
+  // 存储 threadId 到 sessionId 的映射（用于标记已读）
+  const [threadIdToSessionId, setThreadIdToSessionId] = useState({})
+
+  // 标记会话为已读的辅助函数
+  const markSessionAsRead = useCallback(async (threadId, friendId) => {
+    // 如果已有 sessionId 映射，直接使用
+    let sessionId = threadIdToSessionId[threadId]
+    
+    if (!sessionId) {
+      // 通过 friendId 获取或创建私聊会话的 sessionId
+      try {
+        const response = await get(`/chat-service/api/sessions/private/${friendId}`)
+        if (response && response.sessionId) {
+          sessionId = response.sessionId
+          setThreadIdToSessionId(prev => ({ ...prev, [threadId]: sessionId }))
+        }
+      } catch (error) {
+        console.warn('获取会话ID失败', error)
+        // 如果获取失败，尝试从会话列表获取（降级方案）
+        try {
+          const sessionsResponse = await get('/chat-service/api/sessions')
+          if (sessionsResponse && Array.isArray(sessionsResponse)) {
+            const session = sessionsResponse.find(s => 
+              s.sessionType === 'PRIVATE' && s.otherUserId === friendId
+            )
+            if (session) {
+              sessionId = session.sessionId
+              setThreadIdToSessionId(prev => ({ ...prev, [threadId]: sessionId }))
+            }
+          }
+        } catch (e) {
+          console.warn('从会话列表获取sessionId失败', e)
+        }
+      }
+    }
+    
+    // 如果有 sessionId，调用标记已读API
+    if (sessionId) {
+      try {
+        await post(`/chat-service/api/sessions/${sessionId}/read`)
+        console.log('[GlobalChat] 标记消息已读成功: sessionId=', sessionId, 'friendId=', friendId)
+      } catch (error) {
+        console.warn('[GlobalChat] 标记消息已读失败: sessionId=', sessionId, 'error=', error)
+      }
+    } else {
+      console.warn('[GlobalChat] 无法标记已读：未找到 sessionId, friendId=', friendId)
+    }
+  }, [threadIdToSessionId])
 
   useEffect(() => {
     try {
@@ -133,6 +189,70 @@ const GlobalChat = () => {
       cancelled = true
     }
   }, [isAuthenticated])
+
+  // 加载会话列表（包含未读数）
+  useEffect(() => {
+    if (!isAuthenticated || friends.length === 0) {
+      return
+    }
+    
+    let cancelled = false
+    ;(async () => {
+      try {
+        const sessionsResponse = await get('/chat-service/api/sessions')
+        if (!cancelled && sessionsResponse && Array.isArray(sessionsResponse)) {
+          console.log('[GlobalChat] 加载会话列表成功，数量:', sessionsResponse.length, sessionsResponse)
+          
+          // 将会话列表转换为 threads，并建立 friendId 到 sessionId 的映射
+          const newThreads = []
+          const newThreadIdToSessionId = {}
+          
+          sessionsResponse.forEach(session => {
+            // 只处理私聊会话
+            if (session.sessionType === 'PRIVATE' && session.otherUserId) {
+              const threadId = `friend_${session.otherUserId}`
+              
+              // 建立映射
+              newThreadIdToSessionId[threadId] = session.sessionId
+              
+              // 查找对应的好友信息
+              const friend = friends.find(f => f.friendId === session.otherUserId)
+              const displayName = friend?.friendNickname || friend?.friendInfo?.nickname || friend?.friendInfo?.username || '好友'
+              const avatar = friend?.friendInfo?.avatarUrl || DEFAULT_AVATAR
+              
+              // 创建或更新 thread
+              newThreads.push({
+                id: threadId,
+                title: displayName,
+                avatar: avatar,
+                avatarColor: '#4f46e5',
+                lastMessage: session.lastMessage || null,
+                lastTime: session.lastMessageTime ? new Date(session.lastMessageTime) : null,
+                unread: session.unreadCount || 0,
+              })
+            }
+          })
+          
+          if (!cancelled) {
+            setThreadIdToSessionId(prev => ({ ...prev, ...newThreadIdToSessionId }))
+            // 合并到现有 threads（保留前端本地创建的 threads）
+            setThreads(prev => {
+              const existingThreadIds = new Set(newThreads.map(t => t.id))
+              const localThreads = prev.filter(t => !existingThreadIds.has(t.id))
+              return [...newThreads, ...localThreads]
+            })
+          }
+        }
+      } catch (error) {
+        console.warn('[GlobalChat] 加载会话列表失败', error)
+        // 静默失败，不影响好友列表显示
+      }
+    })()
+    
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, friends])
 
   const ensureThread = useCallback((threadId, meta = {}) => {
     setThreads((prev) => {
@@ -204,13 +324,107 @@ const GlobalChat = () => {
     }
   }, [addMessage, ensureThread])
 
+  // 连接 WebSocket 并订阅私聊消息
+  useEffect(() => {
+    if (!isAuthenticated || !currentUserId) {
+      return
+    }
+
+    let unsubscribePrivateChat = null
+
+    // 创建 WebSocket 连接回调
+    const callbacks = {
+      onConnect: () => {
+        // WebSocket 连接成功后，订阅私聊消息
+        try {
+          unsubscribePrivateChat = subscribePrivateChat((payload) => {
+            // 收到私聊消息
+            if (payload.type !== 'PRIVATE' || !payload.senderId || !payload.targetUserId) {
+              return
+            }
+
+            // 确定是发送给我的消息
+            const isForMe = payload.targetUserId === currentUserId || String(payload.targetUserId) === String(currentUserId)
+            if (!isForMe) {
+              return
+            }
+
+            // 构建会话ID（与 handleFriendClick 中的格式一致）
+            const senderId = payload.senderId
+            const threadId = `friend_${senderId}`
+
+            // 确保会话存在（不设置固定的 subtitle，让 lastMessage 自动显示）
+            const senderInfo = payload.senderName || senderId
+            ensureThread(threadId, {
+              title: senderInfo,
+              avatarColor: '#4f46e5',
+            })
+
+            // 添加消息（对方发送的消息，type 为 'other'）
+            addMessage({
+              text: payload.content || '',
+              type: 'other',
+              timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
+              threadId,
+            })
+          })
+        } catch (error) {
+          console.warn('订阅私聊消息失败', error)
+        }
+      },
+      onDisconnect: () => {
+        // 连接断开时清理订阅
+        if (unsubscribePrivateChat) {
+          try {
+            unsubscribePrivateChat()
+          } catch {
+            // ignore
+          }
+          unsubscribePrivateChat = null
+        }
+      },
+      onNotify: (notify) => {
+        // 全局通知 -> 广播给 Header 通知铃铛
+        try {
+          const event = new CustomEvent('gh-notify', { detail: notify })
+          window.dispatchEvent(event)
+        } catch {
+          // ignore
+        }
+      },
+    }
+
+    // 连接 WebSocket
+    connectChatWebSocket(callbacks)
+
+    return () => {
+      // 清理订阅
+      if (unsubscribePrivateChat) {
+        try {
+          unsubscribePrivateChat()
+        } catch {
+          // ignore
+        }
+      }
+      // 移除回调监听器（不断开连接，因为可能有其他监听器在使用）
+      removeChatWebSocketCallbacks(callbacks)
+    }
+  }, [isAuthenticated, currentUserId, addMessage, ensureThread])
+
   const handleToggleDrawer = () => {
     persistDrawer(!drawerOpen)
   }
 
-  const handleOpenThread = (threadId) => {
+  const handleOpenThread = async (threadId) => {
     setActiveThreadId(threadId)
+    // 前端本地更新未读数
     setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, unread: 0 } : t)))
+    
+    // 如果是私聊会话，调用后端API标记为已读
+    if (threadId.startsWith('friend_')) {
+      const friendId = threadId.replace('friend_', '')
+      await markSessionAsRead(threadId, friendId)
+    }
   }
 
   const handleCloseThread = () => {
@@ -225,12 +439,38 @@ const GlobalChat = () => {
     if (!activeThreadId) return
     const text = (drafts[activeThreadId] || '').trim()
     if (!text) return
-    addMessage({ text, type: 'self', threadId: activeThreadId })
-    setDrafts((prev) => ({ ...prev, [activeThreadId]: '' }))
+
+    // 判断是否是私聊会话（threadId 格式为 friend_{friendId}）
+    const isPrivateChat = activeThreadId.startsWith('friend_')
+    
+    if (isPrivateChat) {
+      // 私聊消息：通过 WebSocket 发送
+      const friendId = activeThreadId.replace('friend_', '')
+      if (!friendId || !currentUserId) {
+        console.warn('私聊消息发送失败：缺少 friendId 或 currentUserId')
+        return
+      }
+      
+      try {
+        // 先本地显示（乐观更新）
+        addMessage({ text, type: 'self', threadId: activeThreadId })
+        setDrafts((prev) => ({ ...prev, [activeThreadId]: '' }))
+        
+        // 通过 WebSocket 发送
+        sendPrivateChat(friendId, text)
+      } catch (error) {
+        console.error('发送私聊消息失败', error)
+        // 如果发送失败，可以考虑回滚本地消息
+      }
+    } else {
+      // 其他类型的消息（暂时只支持私聊）
+      addMessage({ text, type: 'self', threadId: activeThreadId })
+      setDrafts((prev) => ({ ...prev, [activeThreadId]: '' }))
+    }
   }
 
   // 点击好友，切换到私聊会话
-  const handleFriendClick = useCallback((friend) => {
+  const handleFriendClick = useCallback(async (friend) => {
     if (!friend?.friendId) return
     
     const friendId = friend.friendId
@@ -238,18 +478,48 @@ const GlobalChat = () => {
     const displayName = friend.friendNickname || friendInfo.nickname || friendInfo.username || '好友'
     const avatar = friendInfo.avatarUrl || DEFAULT_AVATAR
     
-    // 创建或切换到该好友的会话
+    // 创建或切换到该好友的会话（不设置固定的 subtitle，让 lastMessage 自动显示）
     const threadId = `friend_${friendId}`
     ensureThread(threadId, {
       title: displayName,
-      subtitle: '私聊',
       avatar: avatar,
       avatarColor: '#4f46e5',
     })
     
     setActiveThreadId(threadId)
     setActiveTab('chats') // 切换到聊天Tab
-  }, [ensureThread])
+
+    // 加载私聊历史（如果还没有加载过）
+    if (!messagesByThread[threadId] || messagesByThread[threadId].length === 0) {
+      try {
+        const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
+        if (response && Array.isArray(response)) {
+          // 将历史消息添加到会话中（按时间顺序）
+          response.forEach((msg) => {
+            const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
+            addMessage({
+              text: msg.content || '',
+              type: isSelf ? 'self' : 'other',
+              timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+              threadId,
+            })
+          })
+        }
+      } catch (error) {
+        console.warn('加载私聊历史失败', error)
+        // 静默失败，不影响用户体验
+      }
+    }
+
+    // 标记消息为已读（调用后端API，并等待完成）
+    // 注意：这里需要等待标记已读完成，然后更新前端的未读数
+    markSessionAsRead(threadId, friendId).then(() => {
+      // 标记已读成功后，更新前端的未读数
+      setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, unread: 0 } : t)))
+    }).catch((error) => {
+      console.warn('[GlobalChat] 标记已读失败，但继续执行', error)
+    })
+  }, [ensureThread, currentUserId, messagesByThread, addMessage, markSessionAsRead, friends])
 
   const sortedThreads = useMemo(
     () =>
@@ -390,10 +660,15 @@ const GlobalChat = () => {
                       {thread.lastTime && <div className="chat-thread-time">{formatTime(thread.lastTime)}</div>}
                     </div>
                     <div className="chat-thread-bottom">
-                      <div className="chat-thread-subtitle">{thread.subtitle || '点击查看对话'}</div>
+                      <div className="chat-thread-subtitle">
+                        {thread.lastMessage 
+                          ? (thread.lastMessage.length > 30 
+                              ? thread.lastMessage.substring(0, 30) + '...' 
+                              : thread.lastMessage)
+                          : (thread.subtitle || '点击查看对话')}
+                      </div>
                       {thread.unread > 0 && <span className="chat-thread-unread">{thread.unread}</span>}
                     </div>
-                    {thread.lastMessage && <div className="chat-thread-last">{thread.lastMessage}</div>}
                   </div>
                 </button>
               ))}
