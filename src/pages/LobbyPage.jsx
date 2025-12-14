@@ -51,24 +51,8 @@ const LobbyPage = () => {
   const [refreshingRooms, setRefreshingRooms] = useState(false)
   const [loadingMoreRooms, setLoadingMoreRooms] = useState(false)
 
-  const [isMatchmaking, setIsMatchmaking] = useState(false)
-  const matchmakingPollRef = useRef(null)
-  const matchmakingSuccessRef = useRef(null)
+  const [matchmakingModalOpen, setMatchmakingModalOpen] = useState(false)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    // Keycloak 已在应用启动时初始化，这里不需要再次检查认证
-    return () => {
-      if (matchmakingPollRef.current) {
-        clearInterval(matchmakingPollRef.current)
-        matchmakingPollRef.current = null
-      }
-      if (matchmakingSuccessRef.current) {
-        clearTimeout(matchmakingSuccessRef.current)
-        matchmakingSuccessRef.current = null
-      }
-    }
-  }, [])
 
   // 获取当前用户ID（用于判断是否是自己的房间）
   const currentUserId = user?.keycloakUserId || user?.id || user?.sub || null
@@ -153,35 +137,9 @@ const LobbyPage = () => {
     navigate(`/game/${trimmed}`)
   }
 
-  const startMatchmaking = () => {
-    if (isMatchmaking) return
-    setIsMatchmaking(true)
-    if (matchmakingPollRef.current) {
-      clearInterval(matchmakingPollRef.current)
-    }
-    matchmakingPollRef.current = setInterval(() => {
-      // 轮询匹配状态
-    }, 2000)
-    if (matchmakingSuccessRef.current) {
-      clearTimeout(matchmakingSuccessRef.current)
-    }
-    matchmakingSuccessRef.current = setTimeout(() => {
-      window.alert('匹配成功！功能开发中，请先使用创建房间。')
-      cancelMatchmaking()
-    }, 5000)
+  const showMatchmakingModal = () => {
+    setMatchmakingModalOpen(true)
   }
-
-  const cancelMatchmaking = useCallback(() => {
-    setIsMatchmaking(false)
-    if (matchmakingPollRef.current) {
-      clearInterval(matchmakingPollRef.current)
-      matchmakingPollRef.current = null
-    }
-    if (matchmakingSuccessRef.current) {
-      clearTimeout(matchmakingSuccessRef.current)
-      matchmakingSuccessRef.current = null
-    }
-  }, [])
 
   const statusClass = (variant) => {
     if (!variant) return 'status-message'
@@ -229,24 +187,7 @@ const LobbyPage = () => {
                   title="在线匹配"
                   description="快速匹配其他玩家，开始一场精彩对决"
                   actionLabel="开始匹配"
-                  onAction={startMatchmaking}
-                  actionDisabled={isMatchmaking}
-                  hideActionButton={isMatchmaking}
-                  footer={
-                    isMatchmaking ? (
-                      <div className="match-status">
-                        <div className="match-loading">
-                          <span className="loading-dot" />
-                          <span className="loading-dot" />
-                          <span className="loading-dot" />
-                        </div>
-                        <p className="match-text">正在匹配中...</p>
-                        <button type="button" className="mode-btn cancel" onClick={cancelMatchmaking}>
-                          取消匹配
-                        </button>
-                      </div>
-                    ) : null
-                  }
+                  onAction={showMatchmakingModal}
                 />
               </div>
             </div>
@@ -389,6 +330,42 @@ const LobbyPage = () => {
           </button>
         </div>
       </Modal>
+
+      <div
+        className="modal"
+        style={{ display: matchmakingModalOpen ? 'flex' : 'none' }}
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => {
+          // 点击背景不关闭，只能通过按钮关闭
+          event.stopPropagation()
+        }}
+      >
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>在线匹配</h3>
+            <button type="button" className="modal-close" onClick={() => setMatchmakingModalOpen(false)}>
+              &times;
+            </button>
+          </div>
+          <div className="modal-body">
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>⚔️</div>
+              <p style={{ fontSize: '18px', color: '#666', margin: 0, lineHeight: '1.6' }}>
+                匹配功能暂未开放
+              </p>
+              <p style={{ fontSize: '14px', color: '#999', margin: '12px 0 0', lineHeight: '1.5' }}>
+                请使用「创建房间」或「人机对战」功能
+              </p>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn primary" onClick={() => setMatchmakingModalOpen(false)}>
+              知道了
+            </button>
+          </div>
+        </div>
+      </div>
     </>
   )
 }

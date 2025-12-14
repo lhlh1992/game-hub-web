@@ -86,8 +86,7 @@ const gameSections = [
         badgeClass: 'daily',
         thumbClass: 'gradient-green',
         thumbText: '合成猫猫',
-        cta: '试玩',
-        variant: 'primary',
+        cta: '敬请期待',
       },
       {
         title: '花园消除',
@@ -96,8 +95,7 @@ const gameSections = [
         badgeClass: 'hot',
         thumbClass: 'gradient-emerald',
         thumbText: '花园消除',
-        cta: '试玩',
-        variant: 'primary',
+        cta: '敬请期待',
       },
       {
         title: '幸运宾果',
