@@ -349,7 +349,7 @@ const GameRoomPage = () => {
 
   useEffect(() => {
     if (!roomId) {
-      navigate('/lobby', { replace: true })
+      navigate('/', { replace: true })
       return
     }
     let cancelled = false
@@ -360,15 +360,15 @@ const GameRoomPage = () => {
           return
         }
         if (!latest?.hasOngoing || latest.roomId !== roomId) {
-          window.alert('当前没有正在进行的对局，已返回大厅')
-          navigate('/lobby', { replace: true })
+          window.alert('当前没有正在进行的对局，已返回首页')
+          navigate('/', { replace: true })
         } else {
           await refreshOngoing?.()
         }
       } catch (error) {
         // 验证对局状态失败，静默处理
-        window.alert('无法验证当前对局状态，已返回大厅')
-        navigate('/lobby', { replace: true })
+        window.alert('无法验证当前对局状态，已返回首页')
+        navigate('/', { replace: true })
       }
     }
     validateAccess()
@@ -907,7 +907,7 @@ const GameRoomPage = () => {
     if (leaving) {
       return
     }
-    if (!window.confirm('确认离开当前房间并返回大厅吗？')) {
+    if (!window.confirm('确认离开当前房间并返回首页吗？')) {
       return
     }
     setLeaving(true)
@@ -919,7 +919,7 @@ const GameRoomPage = () => {
       window.alert('离开房间失败，请稍后再试')
     } finally {
       setLeaving(false)
-      navigate('/lobby')
+      navigate('/')
     }
   }, [leaving, navigate, refreshOngoing, roomId])
 
@@ -944,7 +944,7 @@ const GameRoomPage = () => {
     setKickedModal({ show: false, reason: '' })
     // 如果还在游戏房间页面，才跳转（可能已经自动跳转了）
     if (window.location.pathname.startsWith('/game/')) {
-      navigate('/lobby')
+      navigate('/')
     }
   }, [navigate])
 

@@ -225,13 +225,13 @@ const Header = () => {
 
   const handleQuitGame = async () => {
     if (!ongoing?.roomId || ending) return
-    const confirmed = window.confirm('确认离开当前对局并返回大厅？')
+    const confirmed = window.confirm('确认离开当前对局并返回首页？')
     if (!confirmed) return
     setEnding(true)
     try {
       await leaveRoom(ongoing.roomId)
       await refreshOngoing?.()
-      navigate('/lobby')
+      navigate('/')
     } catch (error) {
       // 结束对局失败，静默处理
       window.alert('结束对局失败，请稍后再试')
