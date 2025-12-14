@@ -217,6 +217,17 @@ const Header = () => {
       if (action === 'ACCEPT') {
         await acceptFriendRequest(requestId)
         showToast('已同意好友申请', 'success')
+        
+        // 同意好友申请后，触发好友列表刷新事件
+        // 因为同意方不会收到FRIEND_RESULT通知，需要主动刷新
+        try {
+          const refreshEvent = new CustomEvent('gh-friend-list-refresh', { 
+            detail: { action: 'ACCEPT', requestId } 
+          })
+          window.dispatchEvent(refreshEvent)
+        } catch (err) {
+          console.warn('[Header] 触发好友列表刷新事件失败', err)
+        }
       } else if (action === 'REJECT') {
         await rejectFriendRequest(requestId)
         showToast('已拒绝好友申请', 'warning')

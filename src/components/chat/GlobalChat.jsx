@@ -160,44 +160,81 @@ const GlobalChat = () => {
     return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
-  // 加载好友列表
-  useEffect(() => {
+  // 加载好友列表的函数（可复用）
+  const loadFriendsList = useCallback(async () => {
     if (!isAuthenticated) {
       setFriends([])
       return
     }
     
-    let cancelled = false
     setFriendsLoading(true)
-    ;(async () => {
-      try {
-        const friendsList = await getFriendsList()
-        if (!cancelled) {
-          console.log('[GlobalChat] 加载好友列表成功，数量:', friendsList?.length || 0, friendsList)
-          // 按最后互动时间排序
-          const sorted = (friendsList || []).sort((a, b) => {
-            const aTime = a.lastInteractionTime ? new Date(a.lastInteractionTime).getTime() : 0
-            const bTime = b.lastInteractionTime ? new Date(b.lastInteractionTime).getTime() : 0
-            return bTime - aTime
-          })
-          setFriends(sorted)
-        }
-      } catch (error) {
-        console.error('[GlobalChat] 加载好友列表失败', error?.message || error, error)
-        if (!cancelled) {
-          setFriends([])
-        }
-      } finally {
-        if (!cancelled) {
-          setFriendsLoading(false)
-        }
-      }
-    })()
-    
-    return () => {
-      cancelled = true
+    try {
+      const friendsList = await getFriendsList()
+      console.log('[GlobalChat] 加载好友列表成功，数量:', friendsList?.length || 0, friendsList)
+      // 按最后互动时间排序
+      const sorted = (friendsList || []).sort((a, b) => {
+        const aTime = a.lastInteractionTime ? new Date(a.lastInteractionTime).getTime() : 0
+        const bTime = b.lastInteractionTime ? new Date(b.lastInteractionTime).getTime() : 0
+        return bTime - aTime
+      })
+      setFriends(sorted)
+    } catch (error) {
+      console.error('[GlobalChat] 加载好友列表失败', error?.message || error, error)
+      setFriends([])
+    } finally {
+      setFriendsLoading(false)
     }
   }, [isAuthenticated])
+
+  // 初始加载好友列表
+  useEffect(() => {
+    loadFriendsList()
+  }, [loadFriendsList])
+
+  // 监听好友申请结果通知，自动刷新好友列表
+  useEffect(() => {
+    // 处理 FRIEND_RESULT 通知（申请人收到）
+    const handleFriendResultNotification = (event) => {
+      const notify = event?.detail || {}
+      
+      // 只处理 FRIEND_RESULT 类型的通知
+      if (notify.type !== 'FRIEND_RESULT') return
+      
+      // 检查是否是通过（accepted=true）
+      const payload = notify.payload || {}
+      const isAccepted = payload.accepted === true || payload.result === 'ACCEPTED'
+      
+      if (isAccepted) {
+        console.log('[GlobalChat] 收到好友申请通过通知，刷新好友列表', notify)
+        // 延迟一下，确保后端数据已更新
+        setTimeout(() => {
+          loadFriendsList()
+        }, 500)
+      }
+    }
+
+    // 处理好友列表刷新事件（同意方主动触发）
+    const handleFriendListRefresh = (event) => {
+      const detail = event?.detail || {}
+      if (detail.action === 'ACCEPT') {
+        console.log('[GlobalChat] 收到好友列表刷新事件（同意好友申请后）', detail)
+        // 延迟一下，确保后端数据已更新
+        setTimeout(() => {
+          loadFriendsList()
+        }, 500)
+      }
+    }
+
+    // 监听 gh-notify 事件（由 useGlobalChatWs 或 Header 广播）
+    window.addEventListener('gh-notify', handleFriendResultNotification)
+    // 监听好友列表刷新事件（由 Header 在同意好友申请后触发）
+    window.addEventListener('gh-friend-list-refresh', handleFriendListRefresh)
+    
+    return () => {
+      window.removeEventListener('gh-notify', handleFriendResultNotification)
+      window.removeEventListener('gh-friend-list-refresh', handleFriendListRefresh)
+    }
+  }, [loadFriendsList])
 
   // 加载会话列表（包含未读数）
   // 注意：不依赖 friends，避免重复加载。好友信息通过单独的 useEffect 更新
