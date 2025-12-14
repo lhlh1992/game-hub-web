@@ -67,6 +67,8 @@ const GlobalChat = () => {
   const messagesEndRef = useRef(null)
   const activeThreadIdRef = useRef(null) // 用于在 WebSocket 回调中访问最新的 activeThreadId
   const hasUnread = useMemo(() => threads.some((t) => (t.unread || 0) > 0), [threads])
+  // 跟踪哪些会话已经加载过历史消息（避免重复加载）
+  const [historyLoadedThreads, setHistoryLoadedThreads] = useState(new Set())
   
   // 当前用户ID（用于判断消息发送者）
   const currentUserId = useMemo(() => {
@@ -331,11 +333,15 @@ const GlobalChat = () => {
   }, [])
 
   const addMessage = useCallback(
-    ({ text, type = 'self', timestamp = new Date(), threadId, meta = {}, isHistory = false }) => {
+    ({ text, type = 'self', timestamp = new Date(), threadId, meta = {}, isHistory = false, messageId = null }) => {
       if (!threadId) return
       const ts = timestamp instanceof Date ? timestamp : new Date(timestamp)
+      
+      // 使用 messageId 或生成唯一ID（用于去重）
+      const msgId = messageId || createId()
+      
       const msg = {
-        id: createId(),
+        id: msgId,
         text,
         type, // 只支持 'self'（自己发送）和 'other'（对方发送）
         timestamp: ts,
@@ -344,7 +350,15 @@ const GlobalChat = () => {
 
       setMessagesByThread((prev) => {
         const list = prev[threadId] || []
-        return { ...prev, [threadId]: [...list, msg] }
+        // 检查是否已存在相同ID的消息（去重）
+        const exists = list.some(m => m.id === msgId)
+        if (exists) {
+          return prev // 已存在，不重复添加
+        }
+        // 按时间戳插入到正确位置（保持时间顺序）
+        const newList = [...list, msg]
+        newList.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+        return { ...prev, [threadId]: newList }
       })
 
       setThreads((prev) => {
@@ -426,11 +440,14 @@ const GlobalChat = () => {
             })
 
             // 添加消息（对方发送的消息，type 为 'other'）
+            // 使用 clientOpId 作为 messageId，如果没有则使用 timestamp + senderId 组合
+            const messageId = payload.clientOpId || `${payload.timestamp}_${payload.senderId}`
             addMessage({
               text: payload.content || '',
               type: 'other',
               timestamp: payload.timestamp ? new Date(payload.timestamp) : new Date(),
               threadId,
+              messageId: messageId, // 用于去重
             })
 
             // 如果当前会话是活动会话，自动标记为已读
@@ -500,22 +517,29 @@ const GlobalChat = () => {
       const friendId = threadId.replace('friend_', '')
       
       // 加载私聊历史（如果还没有加载过）
-      if (!messagesByThread[threadId] || messagesByThread[threadId].length === 0) {
+      // 修复：即使已经有WebSocket消息，也要加载完整的历史消息
+      if (!historyLoadedThreads.has(threadId)) {
         try {
           const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
           if (response && Array.isArray(response)) {
             // 将历史消息添加到会话中（按时间顺序）
             // 注意：历史消息不应该增加未读数，所以传递 isHistory: true
+            // 使用 clientOpId 或 timestamp 作为 messageId 用于去重
             response.forEach((msg) => {
               const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
+              // 使用 clientOpId 作为 messageId，如果没有则使用 timestamp + senderId 组合
+              const messageId = msg.clientOpId || `${msg.timestamp}_${msg.senderId}`
               addMessage({
                 text: msg.content || '',
                 type: isSelf ? 'self' : 'other',
                 timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
                 threadId,
                 isHistory: true, // 标记为历史消息，不增加未读数
+                messageId: messageId, // 用于去重
               })
             })
+            // 标记为已加载
+            setHistoryLoadedThreads((prev) => new Set([...prev, threadId]))
           }
         } catch (error) {
           console.warn('[GlobalChat] 加载私聊历史失败', error)
@@ -526,7 +550,7 @@ const GlobalChat = () => {
       // 标记消息为已读
       await markSessionAsRead(threadId, friendId)
     }
-  }, [messagesByThread, currentUserId, addMessage, markSessionAsRead])
+  }, [historyLoadedThreads, currentUserId, addMessage, markSessionAsRead])
 
   const handleCloseThread = () => {
     setActiveThreadId(null)
@@ -554,12 +578,22 @@ const GlobalChat = () => {
       }
       
       try {
+        // 生成 clientOpId 用于去重
+        const clientOpId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' 
+          ? crypto.randomUUID() 
+          : `${Date.now()}_${Math.random()}`
+        
         // 先本地显示（乐观更新）
-        addMessage({ text, type: 'self', threadId: activeThreadId })
+        addMessage({ 
+          text, 
+          type: 'self', 
+          threadId: activeThreadId,
+          messageId: clientOpId, // 使用 clientOpId 作为 messageId，用于去重
+        })
         setDrafts((prev) => ({ ...prev, [activeThreadId]: '' }))
         
-        // 通过 WebSocket 发送
-        sendPrivateChat(friendId, text)
+        // 通过 WebSocket 发送（传递 clientOpId）
+        sendPrivateChat(friendId, text, clientOpId)
       } catch (error) {
         console.error('发送私聊消息失败', error)
         // 如果发送失败，可以考虑回滚本地消息
@@ -593,22 +627,29 @@ const GlobalChat = () => {
     setActiveTab('chats') // 切换到聊天Tab
 
     // 加载私聊历史（如果还没有加载过）
-    if (!messagesByThread[threadId] || messagesByThread[threadId].length === 0) {
+    // 修复：即使已经有WebSocket消息，也要加载完整的历史消息
+    if (!historyLoadedThreads.has(threadId)) {
       try {
         const response = await get(`/chat-service/api/private/${friendId}/history?limit=100`)
         if (response && Array.isArray(response)) {
           // 将历史消息添加到会话中（按时间顺序）
           // 注意：历史消息不应该增加未读数，所以传递 isHistory: true
+          // 使用 clientOpId 或 timestamp 作为 messageId 用于去重
           response.forEach((msg) => {
             const isSelf = currentUserId && (msg.senderId === currentUserId || String(msg.senderId) === String(currentUserId))
+            // 使用 clientOpId 作为 messageId，如果没有则使用 timestamp + senderId 组合
+            const messageId = msg.clientOpId || `${msg.timestamp}_${msg.senderId}`
             addMessage({
               text: msg.content || '',
               type: isSelf ? 'self' : 'other',
               timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
               threadId,
               isHistory: true, // 标记为历史消息，不增加未读数
+              messageId: messageId, // 用于去重
             })
           })
+          // 标记为已加载
+          setHistoryLoadedThreads((prev) => new Set([...prev, threadId]))
         }
       } catch (error) {
         console.warn('加载私聊历史失败', error)
