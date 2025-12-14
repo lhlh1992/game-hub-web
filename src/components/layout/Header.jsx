@@ -434,16 +434,16 @@ const Header = () => {
                         })}
                         {notifications.length > 4 && (
                           <div className="notify-more">
-                            <button
-                              type="button"
+                            <Link
+                              to="/messages"
                               className="notify-more-btn"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                // 更多功能暂不实现
+                                setNotifyOpen(false)
                               }}
                             >
                               更多
-                            </button>
+                            </Link>
                           </div>
                         )}
                       </>
@@ -504,9 +504,9 @@ const ProfileDrawer = ({ open, onClose, displayName, playerId, avatarUrl, onLogo
           <button type="button" className="profile-drawer__action">
             隐私模式
           </button>
-          <button type="button" className="profile-drawer__action">
+          <Link to="/messages" className="profile-drawer__action" onClick={onClose}>
             消息中心
-          </button>
+          </Link>
           <Link to="/profile" className="profile-drawer__action" onClick={onClose}>
             个人中心
           </Link>

@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage.jsx'
 import LobbyPage from './pages/LobbyPage.jsx'
 import GameRoomPage from './pages/GameRoomPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import MessageCenterPage from './pages/MessageCenterPage.jsx'
 import SessionMonitorPage from './pages/SessionMonitorPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
 
@@ -34,6 +35,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <MessageCenterPage />
             </ProtectedRoute>
           }
         />
