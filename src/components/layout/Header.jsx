@@ -300,61 +300,77 @@ const Header = () => {
                     {notifications.length === 0 ? (
                       <div className="notify-empty">暂无通知</div>
                     ) : (
-                      notifications.slice(0, 10).map((item) => {
-                        const actions = Array.isArray(item.actions) ? item.actions : []
-                        const isFriendRequest = item.type === 'FRIEND_REQUEST'
-                        const handledStatusText = item?.payload?.handledStatusText
-                        const isHandled = isFriendRequest && (actions.length === 0) && handledStatusText
-                        return (
-                          <div
-                            key={item.id}
-                            className={`notify-item ${item.status === 'UNREAD' ? 'unread' : ''}`}
-                            onClick={() => handleNotifyClick(item.id)}
-                          >
-                            <div className="notify-title">{item.title || '系统通知'}</div>
-                            <div className="notify-content">
-                              {item.content || ''}
-                              {isHandled && (
-                                <span className="notify-status" style={{ 
-                                  color: item?.payload?.handledStatus === 'ACCEPTED' ? '#52c41a' : '#ff4d4f',
-                                  fontWeight: 500,
-                                  fontSize: '11px',
-                                  marginLeft: '8px'
-                                }}>
-                                  {handledStatusText}
-                                </span>
-                              )}
-                            </div>
-                            <div className="notify-time">
-                              {item.createdAt
-                                ? new Date(item.createdAt).toLocaleString()
-                                : ''}
-                            </div>
-                            {isFriendRequest && actions.length > 0 && (
-                              <div className="notify-actions">
-                                {actions.includes('ACCEPT') && (
-                                  <button
-                                    type="button"
-                                    className="notify-btn accept"
-                                    onClick={(e) => handleFriendRequestAction(item, 'ACCEPT', e)}
-                                  >
-                                    同意
-                                  </button>
-                                )}
-                                {actions.includes('REJECT') && (
-                                  <button
-                                    type="button"
-                                    className="notify-btn reject"
-                                    onClick={(e) => handleFriendRequestAction(item, 'REJECT', e)}
-                                  >
-                                    拒绝
-                                  </button>
+                      <>
+                        {notifications.slice(0, 4).map((item) => {
+                          const actions = Array.isArray(item.actions) ? item.actions : []
+                          const isFriendRequest = item.type === 'FRIEND_REQUEST'
+                          const handledStatusText = item?.payload?.handledStatusText
+                          const isHandled = isFriendRequest && (actions.length === 0) && handledStatusText
+                          return (
+                            <div
+                              key={item.id}
+                              className={`notify-item ${item.status === 'UNREAD' ? 'unread' : ''}`}
+                              onClick={() => handleNotifyClick(item.id)}
+                            >
+                              <div className="notify-title">{item.title || '系统通知'}</div>
+                              <div className="notify-content">
+                                {item.content || ''}
+                                {isHandled && (
+                                  <span className="notify-status" style={{ 
+                                    color: item?.payload?.handledStatus === 'ACCEPTED' ? '#52c41a' : '#ff4d4f',
+                                    fontWeight: 500,
+                                    fontSize: '11px',
+                                    marginLeft: '6px'
+                                  }}>
+                                    {handledStatusText}
+                                  </span>
                                 )}
                               </div>
-                            )}
+                              <div className="notify-time">
+                                {item.createdAt
+                                  ? new Date(item.createdAt).toLocaleString()
+                                  : ''}
+                              </div>
+                              {isFriendRequest && actions.length > 0 && (
+                                <div className="notify-actions">
+                                  {actions.includes('ACCEPT') && (
+                                    <button
+                                      type="button"
+                                      className="notify-btn accept"
+                                      onClick={(e) => handleFriendRequestAction(item, 'ACCEPT', e)}
+                                    >
+                                      同意
+                                    </button>
+                                  )}
+                                  {actions.includes('REJECT') && (
+                                    <button
+                                      type="button"
+                                      className="notify-btn reject"
+                                      onClick={(e) => handleFriendRequestAction(item, 'REJECT', e)}
+                                    >
+                                      拒绝
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {notifications.length > 4 && (
+                          <div className="notify-more">
+                            <button
+                              type="button"
+                              className="notify-more-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // 更多功能暂不实现
+                              }}
+                            >
+                              更多
+                            </button>
                           </div>
-                        )
-                      })
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
