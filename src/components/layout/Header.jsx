@@ -94,23 +94,71 @@ const Header = () => {
   const appendNotification = (notify) => {
     let added = false
     setNotifications((prev) => {
-      const id = notify.id || notify.notificationId || notify.payload?.notificationId || notify.timestamp || Date.now()
-      const exists = prev.some((n) => n.id === id)
-      if (exists) return prev
+      // 优先使用 notificationId（唯一标识），这是后端生成的唯一ID
+      const notificationId = notify.id || notify.notificationId || notify.payload?.notificationId
+      const friendRequestId = notify.payload?.friendRequestId
+      
+      // 生成通知的唯一ID：优先使用 notificationId，如果没有则使用其他字段组合
+      // 注意：每次新申请都会生成新的 notificationId，所以不会和旧通知冲突
+      const id = notificationId || (notify.type === 'FRIEND_REQUEST' && friendRequestId ? `friend-request-${friendRequestId}` : null) || `notify-${notify.timestamp || Date.now()}`
+      
+      // 检查是否已存在相同的通知
+      // 对于好友申请，优先检查 notificationId（因为每次新申请都会生成新的 notificationId）
+      const isFriendRequest = notify.type === 'FRIEND_REQUEST'
+      let exists = false
+      
+      if (isFriendRequest && notificationId) {
+        // 好友申请通知：检查是否有相同的 notificationId
+        exists = prev.some((n) => {
+          if (n.type !== 'FRIEND_REQUEST') return false
+          // 检查 notificationId 是否相同
+          const nNotificationId = n.id === notificationId || n.payload?.notificationId === notificationId
+          return nNotificationId
+        })
+      } else {
+        // 非好友申请通知，或没有 notificationId 的好友申请，使用标准去重逻辑
+        exists = prev.some((n) => n.id === id)
+      }
+      
+      if (exists) {
+        console.warn('[Header] 通知已存在，跳过添加', { 
+          id, 
+          notificationId, 
+          friendRequestId, 
+          type: notify.type,
+          existingNotifications: prev.filter(n => n.type === 'FRIEND_REQUEST').map(n => ({
+            id: n.id,
+            notificationId: n.payload?.notificationId,
+            friendRequestId: n.payload?.friendRequestId,
+            hasActions: n.actions?.length > 0
+          }))
+        })
+        return prev
+      }
+      
       added = true
-      const next = sortNotifications([
-        {
-          id,
-          title: notify.title || '系统通知',
-          content: notify.content || notify.payload?.requestMessage || '',
-          status: notify.status || 'UNREAD',
-          createdAt: notify.createdAt || notify.timestamp || Date.now(),
-          type: notify.type || 'SYSTEM',
-          actions: Array.isArray(notify.actions) ? notify.actions : [],
-          payload: notify.payload || {},
-        },
-        ...prev,
-      ]).slice(0, 10)
+      const newNotification = {
+        id,
+        title: notify.title || '系统通知',
+        content: notify.content || notify.payload?.requestMessage || '',
+        status: notify.status || 'UNREAD',
+        createdAt: notify.createdAt || notify.timestamp || Date.now(),
+        type: notify.type || 'SYSTEM',
+        actions: Array.isArray(notify.actions) ? notify.actions : [],
+        payload: notify.payload || {},
+      }
+      
+      console.log('[Header] ✅ 添加新通知成功', { 
+        id, 
+        notificationId, 
+        friendRequestId, 
+        type: notify.type, 
+        hasActions: newNotification.actions.length > 0,
+        notification: newNotification
+      })
+      
+      // 添加新通知到列表顶部
+      const next = sortNotifications([newNotification, ...prev]).slice(0, 10)
       return next
     })
     // 未读总数 +1（仅未读，且确实新增）
@@ -134,9 +182,18 @@ const Header = () => {
 
     const handler = (event) => {
       const notify = event?.detail || {}
-      console.log('[GH][bell] received notify', notify)
+      console.log('[GH][bell] received notify event', {
+        type: notify.type,
+        notificationId: notify.id || notify.notificationId || notify.payload?.notificationId,
+        friendRequestId: notify.payload?.friendRequestId,
+        hasActions: Array.isArray(notify.actions) && notify.actions.length > 0,
+        notify
+      })
       appendNotification(notify)
-      setNotifyOpen(true)
+      // 如果是好友申请通知，自动打开通知面板
+      if (notify.type === 'FRIEND_REQUEST') {
+        setNotifyOpen(true)
+      }
     }
     window.addEventListener('gh-notify', handler)
     return () => window.removeEventListener('gh-notify', handler)
@@ -324,6 +381,25 @@ const Header = () => {
                                   }}>
                                     {handledStatusText}
                                   </span>
+                                )}
+                                {isFriendRequest && item?.payload?.requestMessage && (
+                                  <div className="notify-request-message" style={{
+                                    marginTop: '6px',
+                                    padding: '6px 8px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    lineHeight: '1.4',
+                                    borderLeft: '2px solid #1890ff',
+                                    maxWidth: '100%',
+                                    boxSizing: 'border-box'
+                                  }}>
+                                    <span style={{ color: '#999', fontSize: '11px' }}>验证信息：</span>
+                                    <span style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                      {item.payload.requestMessage}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
                               <div className="notify-time">

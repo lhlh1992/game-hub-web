@@ -315,6 +315,8 @@
     flex-direction: column;
     gap: 0;
     padding: 4px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .notify-list::-webkit-scrollbar {
@@ -343,7 +345,10 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 4px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    min-height: fit-content;
 }
 
 .notify-item::before {
@@ -388,6 +393,10 @@
     margin-bottom: 2px;
     letter-spacing: -0.2px;
     line-height: 1.3;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .notify-content {
@@ -395,6 +404,17 @@
     color: #475569;
     line-height: 1.4;
     margin-bottom: 2px;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.notify-request-message {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .notify-time {
@@ -404,6 +424,10 @@
     margin-bottom: 0;
     font-weight: 500;
     letter-spacing: 0.2px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .notify-actions {
@@ -412,10 +436,14 @@
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid rgba(226, 232, 240, 0.5);
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .notify-btn {
     flex: 1;
+    min-width: 0;
     padding: 5px 12px;
     border-radius: 6px;
     border: none;
@@ -428,6 +456,9 @@
     position: relative;
     overflow: hidden;
     line-height: 1.4;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .notify-btn::before {

@@ -228,13 +228,18 @@ async function connectChatWebSocketInternal(isInitialConnect = false) {
 
         // 订阅业务通知（好友申请等）
         try {
-          console.log('[GH][ws] subscribe user notify')
+          console.log('[GH][ws] 开始订阅用户通知')
           subscribeUserNotify((payload) => {
-            console.log('[GH][ws] received notify', payload)
+            console.log('[GH][ws] onNotify 回调被调用', {
+              type: payload.type,
+              notificationId: payload.id || payload.notificationId || payload.payload?.notificationId,
+              friendRequestId: payload.payload?.friendRequestId
+            })
             notifyListeners('onNotify', payload)
           })
-        } catch {
-          // ignore
+          console.log('[GH][ws] 用户通知订阅完成')
+        } catch (err) {
+          console.error('[GH][ws] 订阅用户通知失败', err)
         }
 
         notifyListeners('onConnect')
@@ -389,23 +394,34 @@ function subscribeUserNotify(onNotify) {
   const sub = client.subscribe(topic, (frame) => {
     try {
       const payload = JSON.parse(frame.body)
+      console.log('[GH][ws] 收到通知消息', {
+        type: payload.type,
+        notificationId: payload.id || payload.notificationId || payload.payload?.notificationId,
+        friendRequestId: payload.payload?.friendRequestId,
+        timestamp: payload.timestamp,
+        payload
+      })
       onNotify?.(payload)
       try {
         // 兜底缓冲，避免监听器尚未注册
         if (typeof window !== 'undefined') {
           window.__ghNotifyBuffer = window.__ghNotifyBuffer || []
           window.__ghNotifyBuffer.push(payload)
+          console.log('[GH][ws] 通知已添加到缓冲区，当前缓冲区大小:', window.__ghNotifyBuffer.length)
         }
         // 直接广播浏览器事件，兜底通知监听方（如 Header）
         const evt = new CustomEvent('gh-notify', { detail: payload })
         window.dispatchEvent(evt)
-      } catch {
-        // ignore
+        console.log('[GH][ws] 已触发 gh-notify 事件', { type: payload.type })
+      } catch (err) {
+        console.error('[GH][ws] 处理通知事件失败', err)
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[GH][ws] 解析通知消息失败', err, frame.body)
     }
   })
+  
+  console.log('[GH][ws] 已订阅通知主题:', topic, '订阅ID:', sub.id)
 
   subscriptions.set(topic, sub)
 }
