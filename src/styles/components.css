@@ -482,6 +482,19 @@
   align-self: flex-end;
 }
 
+.chat-sender-label {
+  font-size: 11px;
+  color: #6b7280;
+  padding: 0 4px 2px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.chat-message.self .chat-sender-label {
+  align-self: flex-end;
+  color: #3b82f6;
+}
+
 .chat-message.system {
   align-self: center;
   max-width: 90%;

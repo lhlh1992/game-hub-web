@@ -896,12 +896,16 @@ const GlobalChat = () => {
 
           <div className="chat-messages" id="globalChatMessages">
             {activeMessages.length === 0 && <div className="chat-empty">暂无消息，开始对话吧</div>}
-            {activeMessages.map((msg) => (
-              <div key={msg.id} className={`chat-message ${msg.type}`}>
-                <div className="chat-bubble">{msg.text}</div>
-                {msg.timestampLabel && <div className="chat-timestamp">{msg.timestampLabel}</div>}
-              </div>
-            ))}
+            {activeMessages.map((msg) => {
+              const senderName = msg.type === 'self' ? '我' : (activeThread?.title || '对方')
+              return (
+                <div key={msg.id} className={`chat-message ${msg.type}`}>
+                  <div className="chat-sender-label">{senderName}</div>
+                  <div className="chat-bubble">{msg.text}</div>
+                  {msg.timestampLabel && <div className="chat-timestamp">{msg.timestampLabel}</div>}
+                </div>
+              )
+            })}
             <div ref={messagesEndRef} />
           </div>
 
