@@ -800,8 +800,11 @@ const GlobalChat = () => {
                       className="chat-thread-item"
                       onClick={() => handleFriendClick(friend)}
                     >
-                      <div className="chat-thread-avatar">
-                        <img src={avatar} alt={displayName} />
+                      <div 
+                        className="chat-thread-avatar"
+                        style={{ backgroundImage: `url('${avatar}')` }}
+                        title={displayName}
+                      >
                         {isFavorite && (
                           <span className="friend-favorite-indicator" title="特别关心">⭐</span>
                         )}
@@ -834,8 +837,15 @@ const GlobalChat = () => {
                   className="chat-thread-item"
                   onClick={() => handleOpenThread(thread.id)}
                 >
-                  <div className="chat-thread-avatar" style={{ backgroundColor: thread.avatarColor || '#4f46e5' }}>
-                    {thread.avatar ? <img src={thread.avatar} alt={thread.title} /> : getInitials(thread.title)}
+                  <div 
+                    className="chat-thread-avatar"
+                    style={{ 
+                      backgroundImage: thread.avatar ? `url('${thread.avatar}')` : undefined,
+                      backgroundColor: thread.avatar ? undefined : (thread.avatarColor || '#4f46e5')
+                    }}
+                    title={thread.title}
+                  >
+                    {!thread.avatar && getInitials(thread.title)}
                   </div>
                   <div className="chat-thread-content">
                     <div className="chat-thread-top">
@@ -866,13 +876,13 @@ const GlobalChat = () => {
             <div className="chat-thread-header-left">
               <div
                 className="chat-thread-avatar"
-                style={{ backgroundColor: activeThread?.avatarColor || '#4f46e5' }}
+                style={{ 
+                  backgroundImage: activeThread?.avatar ? `url('${activeThread.avatar}')` : undefined,
+                  backgroundColor: activeThread?.avatar ? undefined : (activeThread?.avatarColor || '#4f46e5')
+                }}
+                title={activeThread?.title}
               >
-                {activeThread?.avatar ? (
-                  <img src={activeThread.avatar} alt={activeThread.title} />
-                ) : (
-                  getInitials(activeThread?.title)
-                )}
+                {!activeThread?.avatar && getInitials(activeThread?.title)}
               </div>
               <div>
                 <div className="chat-thread-title">{activeThread?.title || '会话'}</div>

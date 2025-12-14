@@ -259,16 +259,11 @@
   flex-shrink: 0;
   overflow: hidden;
   position: relative;
-}
-
-.chat-thread-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.chat-thread-avatar {
-  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #e5e7eb;
+  background-image: url('/images/avatar-default.png');
 }
 
 .friend-online-indicator {
