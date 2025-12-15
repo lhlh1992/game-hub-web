@@ -17,6 +17,13 @@ const withCacheBust = (url, version) => {
   return `${url}${sep}_=${v}`
 }
 
+// 检查是否是有效的 UUID 格式
+const isValidUUID = (str) => {
+  if (!str || typeof str !== 'string') return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
 const Header = () => {
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading, login, logout } = useAuth()
@@ -256,7 +263,11 @@ const Header = () => {
       }))
       if (wasUnread) {
         setUnreadTotal((c) => Math.max(0, c - 1))
-        markNotificationRead(id).catch(() => {})
+        // 只在 id 是有效 UUID 时才调用后端 API
+        // WebSocket 推送的临时通知可能没有 UUID，只在前端标记为已读即可
+        if (isValidUUID(id)) {
+          markNotificationRead(id).catch(() => {})
+        }
       }
       return next
     })
@@ -304,7 +315,10 @@ const Header = () => {
         }))
         if (wasUnread) {
           setUnreadTotal((c) => Math.max(0, c - 1))
-          markNotificationRead(item.id).catch(() => {})
+          // 只在 id 是有效 UUID 时才调用后端 API
+          if (isValidUUID(item.id)) {
+            markNotificationRead(item.id).catch(() => {})
+          }
         }
         return next
       })

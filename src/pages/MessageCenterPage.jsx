@@ -6,6 +6,13 @@ import '../styles/header.css'
 
 const PAGE_SIZE = 10
 
+// 检查是否是有效的 UUID 格式
+const isValidUUID = (str) => {
+  if (!str || typeof str !== 'string') return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
 const MessageCenterPage = () => {
   const { isAuthenticated } = useAuth()
   const [notifications, setNotifications] = useState([])
@@ -96,7 +103,11 @@ const MessageCenterPage = () => {
     setNotifications((list) => {
       return list.map((n) => {
         if (n.id === id && n.status === 'UNREAD') {
-          markNotificationRead(id).catch(() => {})
+          // 只在 id 是有效 UUID 时才调用后端 API
+          // WebSocket 推送的临时通知可能没有 UUID，只在前端标记为已读即可
+          if (isValidUUID(id)) {
+            markNotificationRead(id).catch(() => {})
+          }
           return { ...n, status: 'READ' }
         }
         return n
@@ -343,3 +354,4 @@ const MessageCenterPage = () => {
 }
 
 export default MessageCenterPage
+
