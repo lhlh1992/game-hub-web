@@ -377,12 +377,12 @@ export function useGomokuGame({ roomId, onForbidden, onMessage, currentUserId, o
         }
       }
     } else if (evt.type === 'READY_STATUS') {
-      // 【已废弃】准备状态更新 - 统一使用 SNAPSHOT 事件
+      // 已废弃：准备状态更新 - 统一使用 SNAPSHOT 事件
       // 保留此分支仅为向后兼容，新代码应依赖 SNAPSHOT 事件
       const status = evt.payload || {}
       setReadyStatus(status)
     } else if (evt.type === 'ROOM_STATUS') {
-      // 【已废弃】房间状态更新 - 统一使用 SNAPSHOT 事件
+      // 已废弃：房间状态更新 - 统一使用 SNAPSHOT 事件
       // 保留此分支仅为向后兼容，新代码应依赖 SNAPSHOT 事件
       const status = evt.payload || {}
       if (status.phase) {
